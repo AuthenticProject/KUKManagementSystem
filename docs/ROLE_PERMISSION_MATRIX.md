@@ -51,12 +51,14 @@ Keterangan Simbol:
 | | `employees.create` | ✓ (Global) | - | ✓ (Unit) | - | - | ✓ (Unit) | - |
 | | `employees.update` | ✓ (Global) | - | ✓ (Unit) | - | - | ✓ (Unit) | - |
 | | `employees.deactivate` | ✓ (Global) | - | ✓ (Unit) | - | - | - | - |
+| | `employees.view_sensitive` | ✓ (Global) | - | ✓ (Unit) | ✓ (Unit) | - | - | - |
+| | `employees.manage_sensitive` | ✓ (Global) | - | ✓ (Unit) | - | - | - | - |
 | **Modul Cuti** | `leave.view` | ✓ (Global) | ✓ (Global) | ✓ (Unit) | ✓ (Unit) | - | ✓ (Unit) | - |
 | | `leave.manage` | ✓ (Global) | - | ✓ (Unit) | - | - | ✓ (Unit) | - |
 | | `leave.override_window` | ✓ (Global) | - | ✓ (Unit) | - | - | - | - |
 | **Tip Potong Kaca** | `glass_tips.view` | ✓ (Global) | ✓ (Global) | - | ✓ (Unit) | - | ✓ (Unit) | ✓ (Unit) |
 | | `glass_tips.verify` | ✓ (Global) | - | - | ✓ (Unit) | - | ✓ (Unit) | - |
-| | `glass_tips.rates_manage`| ✓ (Global) | - | - | ✓ (Unit) | - | - | - |
+| | `glass_tips.manage_rates` | ✓ (Global) | - | - | ✓ (Unit) | - | - | - |
 | **Pelanggaran & SP** | `violations.view` | ✓ (Global) | ✓ (Global) | ✓ (Unit) | - | - | ✓ (Unit) | - |
 | | `violations.manage` | ✓ (Global) | - | ✓ (Unit) | - | - | ✓ (Unit) | - |
 | | `violations.issue_sp` | ✓ (Global) | - | ✓ (Unit) | - | - | - | - |

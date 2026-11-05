@@ -15,6 +15,8 @@ Seluruh dokumentasi teknis, hasil audit verifikasi, dan matriks keamanan sistem 
 3. **[PHASE_1_DATABASE_REPORT.md](./docs/PHASE_1_DATABASE_REPORT.md)**: Spesifikasi arsitektur skema SQL kanonikal v3.1.0 (`20261104000001_core_schema_v3_1_0.sql`, 2,084 baris, 60 tabel, 18 ENUM, dan 10 fungsi/trigger).
 4. **[PHASE_1_SECURITY_REVIEW.md](./docs/PHASE_1_SECURITY_REVIEW.md)**: Audit keamanan mendalam Phase 1: pemindaian secret bundle, proteksi `.gitignore` pada `.env`, ketiadaan logging PIN/kredensial, dan kemandirian database RLS.
 5. **[PHASE_1_MIGRATION_VALIDATION.md](./docs/PHASE_1_MIGRATION_VALIDATION.md)**: Validasi graf dependensi relasional SQL migrasi, remediasi forward-reference `glass_tips` -> `payroll_periods`, penegakan RLS pada 60/60 tabel, dan jaminan eksekusi clean-slate database.
+6. **[PHASE_1_SUPABASE_STAGING_SETUP.md](./docs/PHASE_1_SUPABASE_STAGING_SETUP.md)**: Panduan penyiapan Supabase CLI, konfigurasi config.toml staging, audit kompatibilitas Cloud PostgreSQL, dan prosedur aman `supabase link` & `supabase db push`.
+7. **[PHASE_1_PRODUCTION_MIGRATION_AUDIT.md](./docs/PHASE_1_PRODUCTION_MIGRATION_AUDIT.md)**: Hasil audit kondisi remote database PostgreSQL 17, probing 60 tabel kosong, eksekusi migration list & db push dry-run, analisis risiko collision, dan opsi rekomendasi eksekusi.
 
 ### Dokumen Verifikasi Teknis Phase 0.5
 6. **[TECHNICAL_VERIFICATION_REPORT.md](./docs/TECHNICAL_VERIFICATION_REPORT.md)**: Laporan verifikasi teknis menyeluruh (konsistensi dokumen, keamanan data, audit logika RPC, dan penyelarasan composite foreign key).

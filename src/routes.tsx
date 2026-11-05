@@ -7,7 +7,16 @@ import { LandingPage } from '@/modules/landing/LandingPage';
 import { LoginPage } from '@/modules/auth/LoginPage';
 import { DashboardPage } from '@/modules/dashboard/DashboardPage';
 
-// Placeholder untuk rute modul yang dialokasikan pada fase selanjutnya
+// Phase 2 Module Pages
+import { EmployeeListPage } from '@/modules/employees/EmployeeListPage';
+import { LeaveListPage } from '@/modules/leave/LeaveListPage';
+import { ViolationListPage } from '@/modules/violations/ViolationListPage';
+import { AttendanceDashboardPage } from '@/modules/attendance/AttendanceDashboardPage';
+import { GlassTipListPage } from '@/modules/glass-tips/GlassTipListPage';
+import { PayrollDashboardPage } from '@/modules/payroll/PayrollDashboardPage';
+import { FleetListPage } from '@/modules/fleet/FleetListPage';
+
+// Placeholder untuk rute modul yang dialokasikan pada fase selanjutnya (Phase 6)
 const ModulePlaceholder: React.FC<{ title: string; phase: string }> = ({ title, phase }) => (
   <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center max-w-xl mx-auto my-8 shadow-xs">
     <div className="w-12 h-12 bg-kuk-maroon-50 text-kuk-maroon rounded-2xl flex items-center justify-center mx-auto mb-4 font-bold text-lg">
@@ -54,69 +63,77 @@ export const AppRoutes: React.FC = () => {
       >
         <Route path="/dashboard" element={<DashboardPage />} />
 
+        {/* 1. Master Data Karyawan */}
         <Route
           path="/employees"
           element={
             <PermissionGuard permission="employees.view">
-              <ModulePlaceholder title="Master Data Karyawan & Organisasi" phase="Phase 2" />
+              <EmployeeListPage />
             </PermissionGuard>
           }
         />
 
+        {/* 2. Cuti Karyawan */}
         <Route
           path="/leave"
           element={
             <PermissionGuard permission="leave.view">
-              <ModulePlaceholder title="Manajemen & Rekapitulasi Cuti" phase="Phase 3" />
+              <LeaveListPage />
             </PermissionGuard>
           }
         />
 
+        {/* 3. Tip Potong Kaca */}
         <Route
           path="/glass-tips"
           element={
             <PermissionGuard permission="glass_tips.view">
-              <ModulePlaceholder title="Verifikasi Tip Pemotongan Kaca (3%)" phase="Phase 3" />
+              <GlassTipListPage />
             </PermissionGuard>
           }
         />
 
+        {/* 4. Pelanggaran & Surat Peringatan */}
         <Route
           path="/violations"
           element={
             <PermissionGuard permission="violations.view">
-              <ModulePlaceholder title="Catatan Pelanggaran & Surat Peringatan (SP)" phase="Phase 4" />
+              <ViolationListPage />
             </PermissionGuard>
           }
         />
 
+        {/* 5. Presensi & Briefing */}
         <Route
           path="/attendance"
           element={
             <PermissionGuard permission="attendance.view">
-              <ModulePlaceholder title="Presensi Briefing & Impor Mesin Fingerprint" phase="Phase 4" />
+              <AttendanceDashboardPage />
             </PermissionGuard>
           }
         />
 
+        {/* 6. Penggajian / Payroll */}
         <Route
           path="/payroll"
           element={
             <PermissionGuard permission="payroll.view">
-              <ModulePlaceholder title="Penggajian & Penerbitan Slip Gaji" phase="Phase 5" />
+              <PayrollDashboardPage />
             </PermissionGuard>
           }
         />
 
+        {/* 7. Armada Kendaraan */}
         <Route
           path="/fleet"
           element={
             <PermissionGuard permission="fleet.view">
-              <ModulePlaceholder title="Manajemen Armada & Inspeksi Fisik" phase="Phase 3" />
+              <FleetListPage />
             </PermissionGuard>
           }
         />
 
+        {/* Modul Sistem Lanjutan (Phase 6) */}
         <Route
           path="/audit-logs"
           element={
@@ -141,4 +158,3 @@ export const AppRoutes: React.FC = () => {
     </Routes>
   );
 };
-
