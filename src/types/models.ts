@@ -131,6 +131,7 @@ export interface LeaveRequest {
   created_at: string;
   updated_at: string;
   dates?: LeaveRequestDate[];
+  employee?: Employee;
 }
 
 export interface LeaveRequestDate {
@@ -236,6 +237,8 @@ export interface GlassType {
 export interface GlassTipRate {
   id: string;
   unit_id: string;
+  glass_type_id?: string;
+  price_per_sqm?: number;
   name: string;
   calculation_method: TipCalculationMethod;
   default_percentage: number;
@@ -367,4 +370,112 @@ export interface VehicleBorrowingRequest {
   created_at: string;
   vehicle?: Vehicle;
 }
+
+// ----------------------------------------------------------------------------
+// 8. Audit Trail & System Models
+// ----------------------------------------------------------------------------
+export type { Unit as BusinessUnit } from './auth';
+
+export type UserRole = 'PIMPINAN' | 'MANAGER' | 'SUPERVISOR' | 'KASIR' | 'CHECKER' | 'CUTTER' | 'DRIVER';
+
+export interface AuditLog {
+  id: string;
+  unit_id: string;
+  actor_id?: string | null;
+  action: string;
+  table_name: string;
+  record_id?: string | null;
+  old_data?: any;
+  new_data?: any;
+  created_at: string;
+  ip_address?: string | null;
+  notes?: string | null;
+  actor?: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
+}
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  full_name: string;
+  system_role: 'super_admin' | 'central_admin' | 'unit_admin' | 'staff';
+  role?: UserRole;
+  unit_name?: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  is_active?: boolean;
+  assigned_units: string[];
+  created_at: string;
+}
+
+export interface EmployeeJobHistory {
+  id: string;
+  employee_id: string;
+  from_unit_id?: string | null;
+  to_unit_id: string;
+  from_position_id?: string | null;
+  to_position_id: string;
+  effective_date: string;
+  transition_type: 'PROMOTION' | 'MUTATION' | 'DEMOTION' | 'HIRE';
+  notes?: string | null;
+  created_at: string;
+  from_unit_name?: string;
+  to_unit_name?: string;
+  from_position_title?: string;
+  to_position_title?: string;
+}
+
+// ----------------------------------------------------------------------------
+// 9. Fleet Inspection & Return Models
+// ----------------------------------------------------------------------------
+export interface VehicleInspection {
+  id: string;
+  unit_id: string;
+  borrowing_request_id: string;
+  vehicle_id: string;
+  inspection_type: 'CHECK_OUT' | 'CHECK_IN';
+  odometer_km: number;
+  fuel_level: VehicleFuelLevel;
+  cleanliness_score: number;
+  condition_notes?: string | null;
+  inspector_name?: string | null;
+  operational_readiness?: 'FIT' | 'NEEDS_MAINTENANCE';
+  inspected_at: string;
+}
+
+// ----------------------------------------------------------------------------
+// 10. Finance & Cash Expense Models
+// ----------------------------------------------------------------------------
+export type ExpenseCategory =
+  | 'OPERATIONAL'
+  | 'OFFICE_SUPPLIES'
+  | 'FLEET_FUEL'
+  | 'MAINTENANCE'
+  | 'MEAL_ALLOWANCE'
+  | 'PETTY_CASH'
+  | 'OTHER';
+
+export type ExpenseApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface CashExpense {
+  id: string;
+  unit_id: string;
+  expense_number: string;
+  category: ExpenseCategory;
+  amount: number;
+  description: string;
+  recipient_name: string;
+  expense_date: string;
+  approval_status: ExpenseApprovalStatus;
+  approved_by?: string | null;
+  approved_by_name?: string | null;
+  approved_at?: string | null;
+  rejection_reason?: string | null;
+  receipt_url?: string | null;
+  created_at: string;
+}
+
+
 

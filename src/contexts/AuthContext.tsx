@@ -2,6 +2,16 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from '
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase';
 import { Profile, UserUnitRole, UserSystemRole } from '@/types/auth';
+import {
+  isUatDemoAvailable,
+  DEMO_IDENTITIES,
+  DemoIdentityKey,
+  createDemoUserObject,
+  getStoredDemoIdentityKey,
+  setStoredDemoIdentityKey,
+  clearStoredDemoIdentity,
+} from '@/services/demoAuth';
+import { setPreviewModeActive } from '@/services/dataService';
 
 interface AuthContextType {
   user: User | null;
@@ -15,6 +25,10 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  // UAT Demo Access
+  isDemoMode: boolean;
+  activeDemoKey: DemoIdentityKey | null;
+  loginAsDemo: (key: DemoIdentityKey) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [systemRoles, setSystemRoles] = useState<UserSystemRole[]>([]);
   const [unitRoles, setUnitRoles] = useState<UserUnitRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [activeDemoKey, setActiveDemoKey] = useState<DemoIdentityKey | null>(null);
 
   // Muat data profil, roles, dan permissions pengguna
   const loadUserData = async (userId: string) => {
@@ -81,7 +97,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const applyDemoIdentity = (key: DemoIdentityKey) => {
+    const identity = DEMO_IDENTITIES[key];
+    if (!identity) return;
+    setUser(createDemoUserObject(identity));
+    setSession(null);
+    setProfile(identity.profile);
+    setSystemRoles(identity.systemRoles);
+    setUnitRoles(identity.unitRoles);
+    setIsDemoMode(true);
+    setActiveDemoKey(key);
+    setStoredDemoIdentityKey(key);
+    setPreviewModeActive(true);
+    setLoading(false);
+  };
+
+  const loginAsDemo = (key: DemoIdentityKey) => {
+    if (!isUatDemoAvailable()) {
+      console.warn('Security Block: UAT Demo Access is not enabled in this environment.');
+      return;
+    }
+    applyDemoIdentity(key);
+  };
+
   useEffect(() => {
+    if (isUatDemoAvailable()) {
+      const storedDemoKey = getStoredDemoIdentityKey();
+      if (storedDemoKey) {
+        applyDemoIdentity(storedDemoKey);
+        return;
+      }
+    }
+
     // Periksa sesi aktif saat inisialisasi
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -95,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listener perubahan state autentikasi (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isDemoMode) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -108,7 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isDemoMode]);
 
   const isSuperAdmin = useMemo(() => {
     return systemRoles.some((sr) => sr.role.code === 'super_admin');
@@ -139,6 +187,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    if (isDemoMode) {
+      clearStoredDemoIdentity();
+      setPreviewModeActive(false);
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setSystemRoles([]);
+      setUnitRoles([]);
+      setIsDemoMode(false);
+      setActiveDemoKey(null);
+      return;
+    }
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
@@ -148,7 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshProfile = async () => {
-    if (user) {
+    if (user && !isDemoMode) {
       await loadUserData(user.id);
     }
   };
@@ -167,6 +227,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         signOut,
         refreshProfile,
+        isDemoMode,
+        activeDemoKey,
+        loginAsDemo,
       }}
     >
       {children}

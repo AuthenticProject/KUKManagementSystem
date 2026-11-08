@@ -5,7 +5,26 @@ import { employeeService } from '@/services/dataService';
 import type { Employee } from '@/types/models';
 import { EmployeeFormModal } from './EmployeeFormModal';
 import { EmployeeSensitiveModal } from './EmployeeSensitiveModal';
-import { Users, Search, Plus, Filter, ShieldCheck, Mail, Phone, Building2, Edit2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ResetPinModal } from './ResetPinModal';
+import { JobHistoryModal } from './JobHistoryModal';
+import {
+  Users,
+  Search,
+  Plus,
+  Filter,
+  ShieldCheck,
+  Mail,
+  Phone,
+  Building2,
+  Edit2,
+  AlertCircle,
+  CheckCircle2,
+  KeyRound,
+  History,
+  Power,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 
 export const EmployeeListPage: React.FC = () => {
   const { activeUnit, activeUnitId } = useUnit();
@@ -13,34 +32,60 @@ export const EmployeeListPage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isFixture, setIsFixture] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 8;
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
   const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
   const [sensitiveModalOpen, setSensitiveModalOpen] = useState(false);
   const [selectedEmployeeForSensitive, setSelectedEmployeeForSensitive] = useState<Employee | null>(null);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [selectedEmployeeForPin, setSelectedEmployeeForPin] = useState<Employee | null>(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedEmployeeForHistory, setSelectedEmployeeForHistory] = useState<Employee | null>(null);
 
   // Notifications
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
 
   const loadData = async () => {
     if (!activeUnitId) return;
     setLoading(true);
+    setError(null);
     const res = await employeeService.getEmployeesByUnit(activeUnitId);
     setEmployees(res.data);
     setIsFixture(res.isFixture);
+    if (!res.success && res.error) {
+      setError(res.error);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
+    setPage(1);
   }, [activeUnitId]);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
+  const showToast = (msg: string, isError = false) => {
+    setToast({ text: msg, isError });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleToggleStatus = async (emp: Employee) => {
+    if (!activeUnitId) return;
+    const newStatus = emp.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const actionLabel = newStatus === 'ACTIVE' ? 'mengaktifkan kembali' : 'menonaktifkan';
+    const ok = window.confirm(`Apakah Anda yakin ingin ${actionLabel} karyawan "${emp.full_name}" (${emp.employee_code})?`);
+    if (!ok) return;
+
+    const res = await employeeService.updateEmployeeStatus(activeUnitId, emp.id, newStatus);
+    showToast(res.message, !res.success);
+    if (res.success) {
+      loadData();
+    }
   };
 
   const filtered = employees.filter((emp) => {
@@ -52,13 +97,18 @@ export const EmployeeListPage: React.FC = () => {
     return matchSearch && matchStatus;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedEmployees = filtered.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm animate-in slide-in-from-bottom duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>{toast}</span>
+        <div className={`fixed bottom-5 right-5 z-50 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 text-sm animate-in slide-in-from-bottom duration-200 ${
+          toast.isError ? 'bg-red-900 border border-red-700' : 'bg-gray-900'
+        }`}>
+          {toast.isError ? <AlertCircle className="w-4 h-4 text-red-400" /> : <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+          <span>{toast.text}</span>
         </div>
       )}
 
@@ -90,13 +140,31 @@ export const EmployeeListPage: React.FC = () => {
         )}
       </div>
 
+      {/* Error Alert Banner */}
+      {error && !loading && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>
+              <strong>Gagal Memuat Data:</strong> {error}
+            </span>
+          </div>
+          <button
+            onClick={loadData}
+            className="text-xs font-semibold text-rose-700 hover:text-rose-900 underline ml-3 shrink-0"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      )}
+
       {/* Fixture Alert Banner */}
-      {isFixture && (
+      {isFixture && !error && !loading && (
         <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              <strong>Zero-State Preview Mode:</strong> Database Production saat ini masih dalam kondisi bersih (0 baris karyawan). Data di bawah ini adalah sampel preview lokal dan tidak mencemari database Production.
+              <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Data di bawah ini adalah sampel pratinjau terisolasi dan tidak tersimpan di database Production.
             </span>
           </div>
         </div>
@@ -154,7 +222,7 @@ export const EmployeeListPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((emp) => (
+                {paginatedEmployees.map((emp) => (
                   <tr key={emp.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-5 py-4">
                       <div className="font-semibold text-gray-900">{emp.full_name}</div>
@@ -200,6 +268,47 @@ export const EmployeeListPage: React.FC = () => {
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {/* Riwayat Jabatan */}
+                        <button
+                          onClick={() => {
+                            setSelectedEmployeeForHistory(emp);
+                            setHistoryModalOpen(true);
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Riwayat Jabatan & Mutasi"
+                        >
+                          <History className="w-4 h-4 text-blue-600" />
+                        </button>
+
+                        {/* Reset PIN Kiosk (employees.manage_sensitive) */}
+                        {hasPermission('employees.manage_sensitive', activeUnitId) && (
+                          <button
+                            onClick={() => {
+                              setSelectedEmployeeForPin(emp);
+                              setPinModalOpen(true);
+                            }}
+                            className="p-1.5 text-gray-500 hover:text-kuk-gold hover:bg-kuk-gold/10 rounded-lg transition-colors"
+                            title="Reset PIN Kiosk Karyawan"
+                          >
+                            <KeyRound className="w-4 h-4 text-kuk-gold" />
+                          </button>
+                        )}
+
+                        {/* Data Sensitif */}
+                        {hasPermission('employees.view_sensitive', activeUnitId) && (
+                          <button
+                            onClick={() => {
+                              setSelectedEmployeeForSensitive(emp);
+                              setSensitiveModalOpen(true);
+                            }}
+                            className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                            title="Data Sensitif (NIK/Rekening/Gaji)"
+                          >
+                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                          </button>
+                        )}
+
+                        {/* Edit Data */}
                         {hasPermission('employees.update', activeUnitId) && (
                           <button
                             onClick={() => {
@@ -213,16 +322,18 @@ export const EmployeeListPage: React.FC = () => {
                           </button>
                         )}
 
-                        {hasPermission('employees.view_sensitive', activeUnitId) && (
+                        {/* Nonaktifkan / Aktifkan Status (Anti-Hard Delete) */}
+                        {hasPermission('employees.update', activeUnitId) && (
                           <button
-                            onClick={() => {
-                              setSelectedEmployeeForSensitive(emp);
-                              setSensitiveModalOpen(true);
-                            }}
-                            className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Data Sensitif (NIK/Rekening)"
+                            onClick={() => handleToggleStatus(emp)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              emp.status === 'ACTIVE'
+                                ? 'text-gray-400 hover:text-red-700 hover:bg-red-50'
+                                : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
+                            }`}
+                            title={emp.status === 'ACTIVE' ? 'Nonaktifkan Karyawan' : 'Aktifkan Kembali Karyawan'}
                           >
-                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                            <Power className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -231,6 +342,32 @@ export const EmployeeListPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Bar */}
+        {filtered.length > pageSize && (
+          <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
+            <div>
+              Menampilkan {Math.min(filtered.length, (page - 1) * pageSize + 1)} - {Math.min(filtered.length, page * pageSize)} dari {filtered.length} karyawan
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="font-semibold px-2 py-1">Halaman {page} dari {totalPages}</span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -258,6 +395,34 @@ export const EmployeeListPage: React.FC = () => {
             showToast(msg);
             loadData();
           }}
+        />
+      )}
+
+      {selectedEmployeeForPin && (
+        <ResetPinModal
+          isOpen={pinModalOpen}
+          onClose={() => {
+            setPinModalOpen(false);
+            setSelectedEmployeeForPin(null);
+          }}
+          employee={selectedEmployeeForPin}
+          unitId={activeUnitId || ''}
+          onSuccess={(msg) => {
+            showToast(msg);
+            loadData();
+          }}
+        />
+      )}
+
+      {selectedEmployeeForHistory && (
+        <JobHistoryModal
+          isOpen={historyModalOpen}
+          onClose={() => {
+            setHistoryModalOpen(false);
+            setSelectedEmployeeForHistory(null);
+          }}
+          employee={selectedEmployeeForHistory}
+          unitId={activeUnitId || ''}
         />
       )}
     </div>

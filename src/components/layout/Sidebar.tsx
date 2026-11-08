@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Clock,
   Banknote,
+  Wallet,
   Truck,
   FileSearch,
   Settings,
@@ -67,6 +68,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
       label: 'Penggajian / Payroll',
       icon: Banknote,
       show: hasPermission('payroll.view', activeUnitId),
+    },
+    {
+      to: '/finance',
+      label: 'Kas & Pengeluaran',
+      icon: Wallet,
+      show: hasPermission('payroll.view', activeUnitId) || hasPermission('finance.view', activeUnitId),
     },
     {
       to: '/fleet',

@@ -7,7 +7,7 @@ import { LandingPage } from '@/modules/landing/LandingPage';
 import { LoginPage } from '@/modules/auth/LoginPage';
 import { DashboardPage } from '@/modules/dashboard/DashboardPage';
 
-// Phase 2 Module Pages
+// Phase 2 Core Modules
 import { EmployeeListPage } from '@/modules/employees/EmployeeListPage';
 import { LeaveListPage } from '@/modules/leave/LeaveListPage';
 import { ViolationListPage } from '@/modules/violations/ViolationListPage';
@@ -15,43 +15,31 @@ import { AttendanceDashboardPage } from '@/modules/attendance/AttendanceDashboar
 import { GlassTipListPage } from '@/modules/glass-tips/GlassTipListPage';
 import { PayrollDashboardPage } from '@/modules/payroll/PayrollDashboardPage';
 import { FleetListPage } from '@/modules/fleet/FleetListPage';
+import { CashExpensePage } from '@/modules/finance/CashExpensePage';
 
-// Placeholder untuk rute modul yang dialokasikan pada fase selanjutnya (Phase 6)
-const ModulePlaceholder: React.FC<{ title: string; phase: string }> = ({ title, phase }) => (
-  <div className="bg-white p-8 rounded-2xl border border-gray-200 text-center max-w-xl mx-auto my-8 shadow-xs">
-    <div className="w-12 h-12 bg-kuk-maroon-50 text-kuk-maroon rounded-2xl flex items-center justify-center mx-auto mb-4 font-bold text-lg">
-      KUK
-    </div>
-    <h3 className="text-xl font-bold text-gray-900 mb-1">{title}</h3>
-    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-      Jadwal Implementasi: {phase}
-    </span>
-    <p className="text-sm text-gray-500 mt-4 leading-relaxed">
-      Modul ini telah didukung secara penuh pada skema database v3.1.0 dan akan dibangun antarmuka fungsionalnya pada tahap {phase} sesuai Roadmap.
-    </p>
-  </div>
-);
+// Phase 3 Public & Operational Modules
+import { PublicGlassTipPage } from '@/modules/public/PublicGlassTipPage';
+import { PublicFleetBookingPage } from '@/modules/public/PublicFleetBookingPage';
+import { PublicLeaveRequestPage } from '@/modules/public/PublicLeaveRequestPage';
+import { AuditLogPage } from '@/modules/audit/AuditLogPage';
+import { SettingsPage } from '@/modules/settings/SettingsPage';
 
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* Rute Publik */}
+      {/* Rute Publik Landing & Login */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Rute Formulir Publik (Placeholders) */}
-      <Route
-        path="/public/fleet-booking"
-        element={<ModulePlaceholder title="Formulir Publik Peminjaman Kendaraan" phase="Phase 3" />}
-      />
-      <Route
-        path="/public/leave-request"
-        element={<ModulePlaceholder title="Formulir Pengajuan Cuti Mandiri (PIN Auth)" phase="Phase 3" />}
-      />
-      <Route
-        path="/public/glass-tip"
-        element={<ModulePlaceholder title="Formulir Publik Tip Potong Kaca (3%)" phase="Phase 3" />}
-      />
+      {/* Rute Kiosk & Formulir Mandiri Publik */}
+      <Route path="/public/glass-tip" element={<PublicGlassTipPage />} />
+      <Route path="/kiosk/glass-tip" element={<PublicGlassTipPage />} />
+
+      <Route path="/public/fleet-booking" element={<PublicFleetBookingPage />} />
+      <Route path="/kiosk/fleet-booking" element={<PublicFleetBookingPage />} />
+
+      <Route path="/public/leave-request" element={<PublicLeaveRequestPage />} />
+      <Route path="/kiosk/leave-request" element={<PublicLeaveRequestPage />} />
 
       {/* Rute Internal Staf (Terproteksi AuthGuard & AppShell) */}
       <Route
@@ -123,7 +111,17 @@ export const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* 7. Armada Kendaraan */}
+        {/* 7. Kas & Pengeluaran Toko */}
+        <Route
+          path="/finance"
+          element={
+            <PermissionGuard permission="payroll.view">
+              <CashExpensePage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* 8. Armada Kendaraan */}
         <Route
           path="/fleet"
           element={
@@ -133,21 +131,22 @@ export const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* Modul Sistem Lanjutan (Phase 6) */}
+        {/* 9. Audit Trail & Jejak Mutasi Data */}
         <Route
           path="/audit-logs"
           element={
             <PermissionGuard permission="audit_logs.view">
-              <ModulePlaceholder title="Audit Trail & Jejak Mutasi Data" phase="Phase 6" />
+              <AuditLogPage />
             </PermissionGuard>
           }
         />
 
+        {/* 10. Pengaturan Sistem & RBAC */}
         <Route
           path="/settings"
           element={
             <PermissionGuard permission="settings.manage">
-              <ModulePlaceholder title="Pengaturan Sistem & Parameter Operasional" phase="Phase 6" />
+              <SettingsPage />
             </PermissionGuard>
           }
         />

@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnit } from '@/contexts/UnitContext';
-import { Building2, ChevronDown, Check, LogOut, User as UserIcon, Shield, Menu } from 'lucide-react';
+import { Building2, ChevronDown, Check, LogOut, User as UserIcon, Shield, Menu, Sparkles } from 'lucide-react';
+import { DEMO_IDENTITIES, DemoIdentityKey } from '@/services/demoAuth';
 
 interface HeaderProps {
   onToggleMobileMenu?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
-  const { profile, isSuperAdmin, isAdminPusat, signOut } = useAuth();
+  const { profile, isSuperAdmin, isAdminPusat, signOut, isDemoMode, activeDemoKey, loginAsDemo } = useAuth();
   const { activeUnit, activeUnitId, availableUnits, isPusatView, setActiveUnitId } = useUnit();
 
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
@@ -32,9 +33,35 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
   }, []);
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-      {/* Brand & Active Unit Badge */}
-      <div className="flex items-center gap-3 sm:gap-4">
+    <>
+      {isDemoMode && (
+        <div className="bg-amber-400 text-amber-950 px-4 py-1 text-xs font-semibold flex flex-wrap items-center justify-between border-b border-amber-500 shadow-xs z-40 sticky top-0">
+          <div className="flex items-center gap-2">
+            <span className="px-1.5 py-0.5 rounded bg-amber-900 text-amber-100 text-[10px] uppercase tracking-wider font-extrabold">
+              DEMO / UAT
+            </span>
+            <span>
+              Mode Pengujian Lokal: <strong>{profile?.full_name}</strong>
+              {activeUnit && <span className="ml-1 text-amber-950">({activeUnit.name})</span>}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-amber-900 hidden sm:inline">
+              (Simulasi Offline · Tanpa Database Production)
+            </span>
+            <button
+              onClick={() => signOut()}
+              className="px-2 py-0.5 rounded bg-amber-950/15 hover:bg-amber-950/25 text-xs font-bold text-amber-950 transition-colors"
+            >
+              Keluar Demo
+            </button>
+          </div>
+        </div>
+      )}
+
+      <header className={`h-16 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between z-30 shadow-xs ${isDemoMode ? 'sticky top-7' : 'sticky top-0'}`}>
+        {/* Brand & Active Unit Badge */}
+        <div className="flex items-center gap-3 sm:gap-4">
         {onToggleMobileMenu && (
           <button
             onClick={onToggleMobileMenu}
@@ -152,11 +179,49 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           </button>
 
           {profileMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
               <div className="px-4 py-2 border-b border-gray-100">
                 <p className="text-sm font-semibold text-gray-900 truncate">{profile?.full_name}</p>
                 <p className="text-xs text-gray-500 truncate">{profile?.email}</p>
+                {isDemoMode && (
+                  <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    Akun UAT Offline
+                  </span>
+                )}
               </div>
+
+              {isDemoMode && (
+                <div className="px-3 py-2 border-b border-gray-100 bg-amber-50/70">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-amber-900 mb-1.5 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-600" />
+                    <span>Ganti Peran UAT</span>
+                  </div>
+                  <div className="space-y-1">
+                    {(Object.keys(DEMO_IDENTITIES) as DemoIdentityKey[]).map((key) => {
+                      const item = DEMO_IDENTITIES[key];
+                      const isCurrent = activeDemoKey === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            loginAsDemo(key);
+                            setProfileMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between transition-colors ${
+                            isCurrent
+                              ? 'bg-amber-200 text-amber-950 font-bold'
+                              : 'hover:bg-amber-100/70 text-gray-700'
+                          }`}
+                        >
+                          <span className="truncate">{item.label}</span>
+                          {isCurrent && <Check className="w-3 h-3 text-amber-950 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="p-1">
                 <button
@@ -167,7 +232,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                   className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 transition-colors font-medium"
                 >
                   <LogOut className="w-4 h-4" />
-                  Keluar Sistem
+                  {isDemoMode ? 'Keluar dari Demo' : 'Keluar Sistem'}
                 </button>
               </div>
             </div>
@@ -175,5 +240,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         </div>
       </div>
     </header>
-  );
+  </>
+);
 };

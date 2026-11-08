@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lock, Mail, AlertCircle, ArrowLeft } from 'lucide-react';
+import { isUatDemoAvailable, DEMO_IDENTITIES, DemoIdentityKey } from '@/services/demoAuth';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -12,7 +13,7 @@ export const LoginPage: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, loginAsDemo } = useAuth();
 
   const from = (location.state as any)?.from?.pathname || '/dashboard';
 
@@ -139,6 +140,58 @@ export const LoginPage: React.FC = () => {
             </span>
           </div>
         </div>
+
+        {/* Panel Akses Cepat Demo UAT (Hanya Aktif di Mode Dev Lokal dengan VITE_ENABLE_UAT_DEMO=true) */}
+        {isUatDemoAvailable() && (
+          <div className="mt-6 bg-amber-50/90 border border-amber-200/90 rounded-2xl p-5 shadow-xs animate-in fade-in">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300">
+                  DEMO / UAT
+                </span>
+                <span className="text-xs font-bold text-amber-950">
+                  Akses Cepat Pengujian Lokal
+                </span>
+              </div>
+              <span className="text-[10px] text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full font-medium">
+                Offline Mode
+              </span>
+            </div>
+
+            <p className="text-[11px] text-amber-800 mb-4 leading-relaxed">
+              Klik salah satu peran di bawah ini untuk menguji hak akses dan alur kerja bisnis secara offline tanpa koneksi ke database production.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(Object.keys(DEMO_IDENTITIES) as DemoIdentityKey[]).map((key) => {
+                const item = DEMO_IDENTITIES[key];
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      loginAsDemo(key);
+                      navigate('/dashboard', { replace: true });
+                    }}
+                    className="p-2.5 text-left rounded-xl bg-white border border-amber-200 hover:border-kuk-maroon hover:shadow-xs transition-all flex flex-col justify-between group"
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-xs font-bold text-gray-900 group-hover:text-kuk-maroon">
+                        {item.label}
+                      </span>
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                        {item.role}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-gray-500 leading-tight">
+                      {item.badge}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

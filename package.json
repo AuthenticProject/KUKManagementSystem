@@ -8,7 +8,13 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test:phase2": "node scripts/test_phase2_logic.cjs"
+    "test:phase1:static": "node scripts/test_phase1_static.cjs",
+    "test:phase1:simulation": "node scripts/test_phase1_simulation.cjs",
+    "test:phase1:contracts": "node scripts/test_phase1_contracts.cjs",
+    "test:phase1:all": "node scripts/test_phase1_all.cjs",
+    "test:phase2": "node scripts/test_phase2_logic.cjs",
+    "test:phase3": "node scripts/test_phase3_logic.cjs",
+    "test:demo": "node scripts/test_demo_auth.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.6",

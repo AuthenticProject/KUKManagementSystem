@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 import { Unit } from '@/types/auth';
 import { supabase } from '@/services/supabase';
+import { CANONICAL_DEMO_UNITS } from '@/services/demoAuth';
 
 interface UnitContextType {
   activeUnit: Unit | null;
@@ -46,7 +47,8 @@ export const UnitProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Daftar unit yang dapat diakses oleh pengguna
   const availableUnits = useMemo(() => {
     if (isAdminPusat) {
-      return allUnits;
+      if (allUnits.length > 0) return allUnits;
+      return [CANONICAL_DEMO_UNITS.LATANSA, CANONICAL_DEMO_UNITS.PALEN];
     }
     // Ekstrak unit unik dari penugasan unit_roles
     const unitMap = new Map<string, Unit>();
@@ -58,9 +60,20 @@ export const UnitProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Array.from(unitMap.values());
   }, [isAdminPusat, allUnits, unitRoles]);
 
-  // Inisialisasi unit aktif saat pertama kali login
+  // Inisialisasi atau reset unit aktif saat login/ganti role
   useEffect(() => {
     if (loading || authLoading) return;
+
+    // Jika activeUnitId saat ini tidak berada di daftar availableUnits, sinkronkan ulang
+    if (activeUnitId !== null && !availableUnits.some((u) => u.id === activeUnitId)) {
+      if (availableUnits.length === 1) {
+        setActiveUnitIdState(availableUnits[0].id);
+        return;
+      } else if (isAdminPusat) {
+        setActiveUnitIdState(null);
+        return;
+      }
+    }
 
     // Jika belum memilih unit aktif
     if (!activeUnitId) {
