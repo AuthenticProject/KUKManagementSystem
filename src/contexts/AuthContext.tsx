@@ -18,6 +18,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  currentStaffUser: StoredStaffUser | null;
   systemRoles: UserSystemRole[];
   unitRoles: UserUnitRole[];
   isSuperAdmin: boolean;
@@ -39,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [currentStaffUser, setCurrentStaffUser] = useState<StoredStaffUser | null>(null);
   const [systemRoles, setSystemRoles] = useState<UserSystemRole[]>([]);
   const [unitRoles, setUnitRoles] = useState<UserUnitRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const applyStaffUser = (staffUser: StoredStaffUser) => {
+    setCurrentStaffUser(staffUser);
     const identity = userAccountStore.mapToDemoIdentity(staffUser);
     setUser(createDemoUserObject(identity));
     setSession(null);
@@ -210,9 +213,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Evaluasi granular permission
   const hasPermission = (permissionCode: string, unitId?: string | null): boolean => {
-    // Staf resmi KUK memiliki akses operasional penuh tanpa batasan role
-    if (user && !isDemoMode) return true;
     if (isSuperAdmin) return true;
+
+    // Jika login sebagai akun staf KUK, evaluasi menu/fitur yang diizinkan untuk staf ini
+    if (currentStaffUser) {
+      const perms = currentStaffUser.permissions || [];
+      if (perms.includes('*')) return true;
+
+      const code = (permissionCode || '').toLowerCase();
+      if (code.startsWith('employee') && (perms.includes('karyawan') || perms.includes('employees'))) return true;
+      if (code.startsWith('attendance') && (perms.includes('absen') || perms.includes('attendance'))) return true;
+      if (code.startsWith('leave') && (perms.includes('cuti') || perms.includes('leave'))) return true;
+      if ((code.startsWith('glass') || code.includes('tip')) && (perms.includes('tip') || perms.includes('glass_tips'))) return true;
+      if (code.startsWith('fleet') && (perms.includes('fleet') || perms.includes('peminjaman'))) return true;
+      if (code.startsWith('violation') && (perms.includes('pelanggaran') || perms.includes('violations'))) return true;
+      if (code.startsWith('payroll') && (perms.includes('payroll') || perms.includes('gaji'))) return true;
+      if (code.startsWith('finance') && (perms.includes('finance') || perms.includes('keuangan'))) return true;
+      if (code.startsWith('settings') && (perms.includes('settings') || perms.includes('pengaturan'))) return true;
+      if (code.startsWith('dashboard') && perms.includes('dashboard')) return true;
+
+      if (perms.includes(code)) return true;
+
+      return false;
+    }
+
+    // Staf resmi KUK default tanpa pembatasan jika tidak ada profil staff spesifik
+    if (user && !isDemoMode) return true;
 
     // Cek izin dari role sistem global
     const hasGlobalPerm = systemRoles.some((sr) =>
@@ -237,6 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (e) { }
     }
     clearStoredDemoIdentity();
+    setCurrentStaffUser(null);
     setUser(null);
     setSession(null);
     setProfile(null);
@@ -261,6 +288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         profile,
+        currentStaffUser,
         systemRoles,
         unitRoles,
         isSuperAdmin,

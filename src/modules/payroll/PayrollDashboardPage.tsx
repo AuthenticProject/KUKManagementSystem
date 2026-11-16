@@ -18,10 +18,11 @@ import {
   RefreshCw,
   Printer,
   Calendar,
+  Pencil,
 } from 'lucide-react';
 
 export const PayrollDashboardPage: React.FC = () => {
-  const { activeUnit, activeUnitId } = useUnit();
+  const { activeUnit, activeUnitId, availableUnits } = useUnit();
   const { user, hasPermission } = useAuth();
   const [periods, setPeriods] = useState<PayrollPeriod[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<PayrollPeriod | null>(null);
@@ -37,6 +38,20 @@ export const PayrollDashboardPage: React.FC = () => {
   const [slipModalOpen, setSlipModalOpen] = useState(false);
   const [selectedSlip, setSelectedSlip] = useState<PayrollRecord | null>(null);
 
+  // Edit Slip Modal
+  const [editSlipModalOpen, setEditSlipModalOpen] = useState(false);
+  const [editingSlip, setEditingSlip] = useState<PayrollRecord | null>(null);
+  const [savingSlip, setSavingSlip] = useState(false);
+  const [eBaseSalary, setEBaseSalary] = useState<number>(0);
+  const [eGajiBagian, setEGajiBagian] = useState<number>(0);
+  const [eHadiahPondok, setEHadiahPondok] = useState<number>(0);
+  const [eTipKaca, setETipKaca] = useState<number>(0);
+  const [eTunjanganKeluarga, setETunjanganKeluarga] = useState<number>(0);
+  const [eInsentifCuti, setEInsentifCuti] = useState<number>(0);
+  const [eBonusIncentive, setEBonusIncentive] = useState<number>(0);
+  const [eOtherDeductions, setEOtherDeductions] = useState<number>(0);
+  const [eAbsentCount, setEAbsentCount] = useState<number>(0);
+
   // Create Period Modal
   const [createPeriodModalOpen, setCreatePeriodModalOpen] = useState(false);
   const [newPeriodName, setNewPeriodName] = useState('Gaji November 2026');
@@ -47,27 +62,32 @@ export const PayrollDashboardPage: React.FC = () => {
   const [recalculating, setRecalculating] = useState(false);
 
   const loadPeriods = async () => {
-    if (!activeUnitId) return;
     setLoading(true);
     setError(null);
-    const pRes = await payrollService.getPayrollPeriods(activeUnitId);
-    setPeriods(pRes.data);
-    setIsFixture(pRes.isFixture);
-    if (!pRes.success && pRes.error) {
-      setError(pRes.error);
-    }
-    if (pRes.data.length > 0) {
-      setSelectedPeriod(pRes.data[0]);
-      const rRes = await payrollService.getPayrollRecords(pRes.data[0].id);
-      setRecords(rRes.data);
-      if (!rRes.success && rRes.error && !pRes.error) {
-        setError(rRes.error);
+    try {
+      const targetUnitId = activeUnitId || availableUnits[0]?.id || '00000000-0000-0000-0000-000000000001';
+      const pRes = await payrollService.getPayrollPeriods(targetUnitId);
+      setPeriods(pRes.data);
+      setIsFixture(pRes.isFixture);
+      if (!pRes.success && pRes.error) {
+        setError(pRes.error);
       }
-    } else {
-      setSelectedPeriod(null);
-      setRecords([]);
+      if (pRes.data.length > 0) {
+        setSelectedPeriod(pRes.data[0]);
+        const rRes = await payrollService.getPayrollRecords(pRes.data[0].id);
+        setRecords(rRes.data);
+        if (!rRes.success && rRes.error && !pRes.error) {
+          setError(rRes.error);
+        }
+      } else {
+        setSelectedPeriod(null);
+        setRecords([]);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Gagal memuat data periode penggajian.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -79,15 +99,94 @@ export const PayrollDashboardPage: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const handleOpenEditSlip = (record: PayrollRecord) => {
+    setEditingSlip(record);
+    let base = 0;
+    let bagian = 0;
+    let hadiah = 0;
+    let tip = 0;
+    let tunjKeluarga = 0;
+    let insCuti = 0;
+    let bonus = 0;
+    let kasbon = 0;
+    let absent = 0;
+
+    if (record.items && record.items.length > 0) {
+      record.items.forEach((it) => {
+        const name = (it.component_name || '').toLowerCase();
+        if (name.includes('pokok')) base = it.amount;
+        else if (name.includes('bagian')) bagian = it.amount;
+        else if (name.includes('pondok')) hadiah = it.amount;
+        else if (name.includes('tip') || name.includes('kaca')) tip = it.amount;
+        else if (name.includes('keluarga') || name.includes('berkeluarga')) tunjKeluarga = it.amount;
+        else if (name.includes('cuti')) insCuti = it.amount;
+        else if (name.includes('bonus')) bonus = it.amount;
+        else if (name.includes('alpa') || name.includes('tidak masuk')) {
+          absent = Math.round(it.amount / 28500);
+        } else if (it.component_type === 'DEDUCTION') {
+          kasbon += it.amount;
+        }
+      });
+    } else {
+      base = record.total_earnings || 1000000;
+      kasbon = record.total_deductions || 0;
+    }
+
+    setEBaseSalary(base);
+    setEGajiBagian(bagian);
+    setEHadiahPondok(hadiah);
+    setETipKaca(tip);
+    setETunjanganKeluarga(tunjKeluarga);
+    setEInsentifCuti(insCuti);
+    setEBonusIncentive(bonus);
+    setEOtherDeductions(kasbon);
+    setEAbsentCount(absent);
+    setEditSlipModalOpen(true);
+  };
+
+  const handleSaveEditSlip = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSlip) return;
+    setSavingSlip(true);
+    const periodId = selectedPeriod?.id || editingSlip.payroll_period_id;
+    const res = await payrollService.updatePayrollRecord(periodId, editingSlip.id, {
+      baseSalary: Number(eBaseSalary) || 0,
+      gajiBagian: Number(eGajiBagian) || 0,
+      hadiahPondok: Number(eHadiahPondok) || 0,
+      tipKaca: Number(eTipKaca) || 0,
+      tunjanganKeluarga: Number(eTunjanganKeluarga) || 0,
+      insentifCuti: Number(eInsentifCuti) || 0,
+      bonusIncentive: Number(eBonusIncentive) || 0,
+      otherDeductions: Number(eOtherDeductions) || 0,
+      absentCount: Number(eAbsentCount) || 0,
+    });
+    setSavingSlip(false);
+    showToast(res.message, !res.success);
+    if (res.success && res.record) {
+      setRecords((prev) => prev.map((r) => (r.id === res.record!.id ? res.record! : r)));
+      if (selectedSlip && selectedSlip.id === res.record.id) {
+        setSelectedSlip(res.record);
+      }
+      setEditSlipModalOpen(false);
+      const targetUnitId = activeUnitId || availableUnits[0]?.id || '00000000-0000-0000-0000-000000000001';
+      const pRes = await payrollService.getPayrollPeriods(targetUnitId);
+      setPeriods(pRes.data);
+      if (selectedPeriod) {
+        const updatedP = pRes.data.find((p) => p.id === selectedPeriod.id);
+        if (updatedP) setSelectedPeriod(updatedP);
+      }
+    }
+  };
+
   const handleCreatePeriod = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeUnitId) return;
+    const targetUnitId = activeUnitId || availableUnits[0]?.id || '00000000-0000-0000-0000-000000000001';
     if (!newPeriodName.trim() || !newStartDate || !newEndDate || !newPayoutDate) {
       showToast('Seluruh field periode penggajian wajib diisi.', true);
       return;
     }
     setCreatingPeriod(true);
-    const res = await payrollService.createPayrollPeriod(activeUnitId, {
+    const res = await payrollService.createPayrollPeriod(targetUnitId, {
       period_name: newPeriodName.trim(),
       start_date: newStartDate,
       end_date: newEndDate,
@@ -102,9 +201,10 @@ export const PayrollDashboardPage: React.FC = () => {
   };
 
   const handleRecalculateDraft = async () => {
-    if (!selectedPeriod || !activeUnitId) return;
+    if (!selectedPeriod) return;
+    const targetUnitId = activeUnitId || availableUnits[0]?.id || '00000000-0000-0000-0000-000000000001';
     setRecalculating(true);
-    const res = await payrollService.recalculateDraftPayroll(activeUnitId, selectedPeriod.id);
+    const res = await payrollService.recalculateDraftPayroll(targetUnitId, selectedPeriod.id);
     setRecalculating(false);
     showToast(res.message, !res.success);
     if (res.success) {
@@ -114,14 +214,15 @@ export const PayrollDashboardPage: React.FC = () => {
   };
 
   const handleFinalize = async () => {
-    if (!selectedPeriod || !activeUnitId) return;
+    if (!selectedPeriod) return;
+    const targetUnitId = activeUnitId || availableUnits[0]?.id || '00000000-0000-0000-0000-000000000001';
     if (!user?.id) {
       showToast('Gagal: Sesi pengguna tidak ditemukan. Silakan login kembali.', true);
       return;
     }
     setFinalizing(true);
     const res = await payrollService.finalizePayrollAtomic(
-      activeUnitId,
+      targetUnitId,
       selectedPeriod.id,
       user.id
     );
@@ -355,7 +456,7 @@ export const PayrollDashboardPage: React.FC = () => {
                     <th className="px-4 py-2.5">Total Pendapatan</th>
                     <th className="px-4 py-2.5">Potongan</th>
                     <th className="px-4 py-2.5">Gaji Bersih (Net)</th>
-                    <th className="px-4 py-2.5 text-right">Rincian</th>
+                    <th className="px-4 py-2.5 text-right">Rincian & Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -370,16 +471,29 @@ export const PayrollDashboardPage: React.FC = () => {
                       <td className="px-4 py-3 text-rose-600 font-semibold">{formatRupiah(r.total_deductions)}</td>
                       <td className="px-4 py-3 font-bold text-emerald-700">{formatRupiah(r.net_salary)}</td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedSlip(r);
-                            setSlipModalOpen(true);
-                          }}
-                          className="p-1 text-gray-400 hover:text-kuk-maroon hover:bg-kuk-maroon-50 rounded transition-colors"
-                          title="Lihat Rincian Slip Gaji"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {selectedPeriod?.status !== 'FINALIZED' && (
+                            <button
+                              onClick={() => handleOpenEditSlip(r)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors shadow-2xs"
+                              title="Edit rincian komponen pendapatan & potongan gaji"
+                            >
+                              <Pencil className="w-3 h-3 text-amber-600" />
+                              <span>Edit Gaji</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setSelectedSlip(r);
+                              setSlipModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-gray-500 hover:text-kuk-maroon hover:bg-kuk-maroon-50 rounded-lg transition-colors border border-gray-200"
+                            title="Lihat Rincian & Cetak Slip Gaji"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Slip</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -679,6 +793,288 @@ export const PayrollDashboardPage: React.FC = () => {
                 Dokumen ini digenerate secara otomatis oleh KUK Management System v3.1.0 • Sah tanpa tanda tangan basah jika berstatus FINALIZED.
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Gaji Karyawan Sesuai Web Referensi Resmi KUK */}
+      {editSlipModalOpen && editingSlip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            {/* Header Modal */}
+            <div className="px-6 py-4 bg-kuk-maroon text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-kuk-gold/20 rounded-xl">
+                  <Pencil className="w-5 h-5 text-kuk-gold" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-sm sm:text-base">
+                    Edit Rincian Gaji — {editingSlip.snapshot_employee_name}
+                  </h2>
+                  <p className="text-[11px] text-white/80">
+                    {editingSlip.snapshot_department_name} • {editingSlip.snapshot_position_title} • Slip No: {editingSlip.slip_number}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditSlipModalOpen(false)}
+                className="text-white/80 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditSlip} className="p-6 space-y-5 text-xs max-h-[82vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Kolom 1: Pendapatan */}
+                <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+                    <span className="font-bold text-xs uppercase tracking-wider text-emerald-900">
+                      A. Komponen Pendapatan
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      Earnings
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Gaji Pokok (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={eBaseSalary}
+                      onChange={(e) => setEBaseSalary(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Gaji Bagian (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={eGajiBagian}
+                      onChange={(e) => setEGajiBagian(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Hadiah Pondok (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={eHadiahPondok}
+                      onChange={(e) => setEHadiahPondok(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Tip Kaca 3% (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={eTipKaca}
+                      onChange={(e) => setETipKaca(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Tunjangan Berkeluarga (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={eTunjanganKeluarga}
+                      onChange={(e) => setETunjanganKeluarga(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Insentif Cuti (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={eInsentifCuti}
+                      onChange={(e) => setEInsentifCuti(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                      Bonus Tambahan (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={eBonusIncentive}
+                      onChange={(e) => setEBonusIncentive(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Subtotal Pendapatan */}
+                  <div className="pt-2 border-t border-emerald-200 flex items-center justify-between font-bold text-emerald-900">
+                    <span>Total Pendapatan (A):</span>
+                    <span className="font-mono text-sm">
+                      {formatRupiah(
+                        (Number(eBaseSalary) || 0) +
+                          (Number(eGajiBagian) || 0) +
+                          (Number(eHadiahPondok) || 0) +
+                          (Number(eTipKaca) || 0) +
+                          (Number(eTunjanganKeluarga) || 0) +
+                          (Number(eInsentifCuti) || 0) +
+                          (Number(eBonusIncentive) || 0)
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Kolom 2: Potongan */}
+                <div className="p-4 bg-rose-50/50 rounded-xl border border-rose-200 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-rose-200">
+                      <span className="font-bold text-xs uppercase tracking-wider text-rose-900">
+                        B. Komponen Potongan
+                      </span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
+                        Deductions
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                        Hari Tidak Masuk / Alpa (Hari)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          max={31}
+                          value={eAbsentCount}
+                          onChange={(e) => setEAbsentCount(Number(e.target.value) || 0)}
+                          className="w-24 px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                        />
+                        <span className="text-gray-500 text-xs">Hari</span>
+                      </div>
+                      <div className="text-[11px] text-rose-700 mt-1 font-medium">
+                        Potongan: {eAbsentCount} × Rp28.500 ={' '}
+                        <strong className="font-mono">{formatRupiah(eAbsentCount * 28500)}</strong>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                        Potongan Kasbon / Lainnya (Rp)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        value={eOtherDeductions}
+                        onChange={(e) => setEOtherDeductions(Number(e.target.value) || 0)}
+                        className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg bg-white font-mono font-semibold focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    {/* Subtotal Potongan */}
+                    <div className="pt-2 border-t border-rose-200 flex items-center justify-between font-bold text-rose-900">
+                      <span>Total Potongan (B):</span>
+                      <span className="font-mono text-sm">
+                        {formatRupiah((Number(eOtherDeductions) || 0) + (Number(eAbsentCount) || 0) * 28500)}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-800">
+                      Perhitungan gaji bersih langsung diperbarui dan tersimpan permanen pada database lokal & Supabase.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Bersih Banner (THP) */}
+              {(() => {
+                const totalE =
+                  (Number(eBaseSalary) || 0) +
+                  (Number(eGajiBagian) || 0) +
+                  (Number(eHadiahPondok) || 0) +
+                  (Number(eTipKaca) || 0) +
+                  (Number(eTunjanganKeluarga) || 0) +
+                  (Number(eInsentifCuti) || 0) +
+                  (Number(eBonusIncentive) || 0);
+                const totalD = (Number(eOtherDeductions) || 0) + (Number(eAbsentCount) || 0) * 28500;
+                const net = Math.max(0, totalE - totalD);
+
+                return (
+                  <div className="p-4 bg-kuk-maroon text-white rounded-xl flex items-center justify-between shadow-xs">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-wider text-kuk-gold font-bold">
+                        Gaji Bersih / Take Home Pay (A - B)
+                      </div>
+                      <div className="text-[10px] text-white/70">
+                        Total Pendapatan ({formatRupiah(totalE)}) - Total Potongan ({formatRupiah(totalD)})
+                      </div>
+                    </div>
+                    <div className="text-2xl font-black text-kuk-gold font-mono tracking-tight">
+                      {formatRupiah(net)}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditSlipModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSlip}
+                  className="px-5 py-2 text-xs font-bold text-white bg-kuk-maroon hover:bg-kuk-maroon-700 rounded-xl disabled:opacity-50 transition-colors shadow-xs inline-flex items-center gap-1.5"
+                >
+                  {savingSlip ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-kuk-gold" />
+                      <span>Simpan Perubahan Gaji</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

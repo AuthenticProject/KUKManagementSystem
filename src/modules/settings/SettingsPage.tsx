@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Building2,
   CheckCircle2,
-  Check,
   X,
   Database,
   AlertCircle,
@@ -32,8 +31,21 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
 
+export const SYSTEM_FEATURES = [
+  { id: 'dashboard', label: 'Dashboard Utama', desc: 'Ringkasan operasional toko, grafik, dan metrik bisnis' },
+  { id: 'karyawan', label: 'Data Karyawan & SDM', desc: 'Daftar karyawan, biodata, data gaji/bank, dan arsip dokumen' },
+  { id: 'absen', label: 'Presensi & Briefing', desc: 'Presensi kehadiran, catatan keterlambatan, dan briefing' },
+  { id: 'cuti', label: 'Pengajuan & Rekap Cuti', desc: 'Form pengajuan cuti, approval pimpinan, dan sisa cuti' },
+  { id: 'tip', label: 'Tip Potong Kaca (3%)', desc: 'Penginputan nota kaca, hitung otomatis 3%, dan verifikasi komisi' },
+  { id: 'fleet', label: 'Armada & Peminjaman Kendaraan', desc: 'Master kendaraan, form peminjaman, dan pengembalian' },
+  { id: 'pelanggaran', label: 'Pelanggaran & SP', desc: 'Pencatatan pelanggaran disiplin & surat peringatan' },
+  { id: 'payroll', label: 'Penggajian / Payroll & Slip Gaji', desc: 'Hitung draft gaji, edit rincian gaji, cetak slip' },
+  { id: 'finance', label: 'Kas Operasional & Pengeluaran', desc: 'Pencatatan mutasi kas dan pengeluaran harian' },
+  { id: 'settings', label: 'Pengaturan Sistem & Master Data', desc: 'Kelola akun staf, tarif kaca, departemen, jadwal' },
+];
+
 export const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'USERS' | 'MASTER' | 'RBAC' | 'UNITS'>('USERS');
+  const [activeTab, setActiveTab] = useState<'USERS' | 'MASTER' | 'UNITS'>('USERS');
   const [staffUsers, setStaffUsers] = useState<StoredStaffUser[]>([]);
   const [units, setUnits] = useState<BusinessUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -99,6 +111,7 @@ export const SettingsPage: React.FC = () => {
   const [formShowPassword, setFormShowPassword] = useState(false);
   const [formToko, setFormToko] = useState<'bangunan' | 'palen'>('bangunan');
   const [formRole, setFormRole] = useState<UserRole>('SUPERVISOR');
+  const [formPermissions, setFormPermissions] = useState<string[]>([]);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formEmail, setFormEmail] = useState('');
   const [formPhone, setFormPhone] = useState('');
@@ -177,6 +190,7 @@ export const SettingsPage: React.FC = () => {
     setFormShowPassword(false);
     setFormToko('bangunan');
     setFormRole('SUPERVISOR');
+    setFormPermissions(SYSTEM_FEATURES.map((f) => f.id));
     setFormIsActive(true);
     setFormEmail('');
     setFormPhone('');
@@ -194,10 +208,34 @@ export const SettingsPage: React.FC = () => {
     setFormShowPassword(false);
     setFormToko(user.toko === 'palen' ? 'palen' : 'bangunan');
     setFormRole(user.role);
+    if (user.permissions?.includes('*')) {
+      setFormPermissions(SYSTEM_FEATURES.map((f) => f.id));
+    } else {
+      setFormPermissions(
+        user.permissions && user.permissions.length > 0
+          ? user.permissions
+          : SYSTEM_FEATURES.map((f) => f.id)
+      );
+    }
     setFormIsActive(user.is_active);
     setFormEmail(user.email || '');
     setFormPhone(user.phone || '');
     setAccountModalOpen(true);
+  };
+
+  // Toggle specific feature permission
+  const togglePermission = (id: string) => {
+    setFormPermissions((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllPermissions = () => {
+    setFormPermissions(SYSTEM_FEATURES.map((f) => f.id));
+  };
+
+  const handleClearAllPermissions = () => {
+    setFormPermissions(['dashboard']);
   };
 
   // Save Account (Create / Edit)
@@ -224,6 +262,7 @@ export const SettingsPage: React.FC = () => {
       password: formPassword.trim(),
       toko: formToko,
       role: formRole,
+      permissions: formPermissions,
       is_active: formIsActive,
       email: formEmail.trim() || `${formUsername.trim().toLowerCase()}@kuk.co.id`,
       phone: formPhone.trim() || '081234567890',
@@ -351,47 +390,6 @@ export const SettingsPage: React.FC = () => {
     return matchesSearch && matchesUnit;
   });
 
-  // Matrix Definition
-  const permissionsList = [
-    { key: 'employees.view', label: 'Lihat Data Karyawan' },
-    { key: 'employees.manage', label: 'Kelola Master Karyawan' },
-    { key: 'leave.view', label: 'Lihat Pengajuan Cuti' },
-    { key: 'leave.manage', label: 'Persetujuan / Pembatalan Cuti' },
-    { key: 'glass_tips.view', label: 'Lihat Nota Pemotongan Kaca' },
-    { key: 'glass_tips.verify', label: 'Verifikasi Fisik & Nominal Tip' },
-    { key: 'attendance.view', label: 'Lihat Presensi Harian' },
-    { key: 'attendance.manage', label: 'Koreksi Presensi Manual' },
-    { key: 'fleet.view', label: 'Lihat Armada & Jadwal' },
-    { key: 'fleet.manage', label: 'Kelola Inventaris Armada' },
-    { key: 'fleet.approve_borrowing', label: 'Persetujuan Peminjaman Armada' },
-    { key: 'payroll.view', label: 'Lihat Periode & Slip Gaji' },
-    { key: 'payroll.manage', label: 'Finalisasi Payroll Atomik' },
-    { key: 'audit_logs.view', label: 'Lihat Rekam Jejak Audit' },
-    { key: 'settings.manage', label: 'Konfigurasi Sistem & Hak Akses' },
-  ];
-
-  const rolePermissionMap: Record<UserRole, string[]> = {
-    PIMPINAN: permissionsList.map((p) => p.key),
-    MANAGER: permissionsList.map((p) => p.key),
-    SUPERVISOR: [
-      'employees.view',
-      'leave.view',
-      'leave.manage',
-      'glass_tips.view',
-      'glass_tips.verify',
-      'attendance.view',
-      'attendance.manage',
-      'fleet.view',
-      'fleet.approve_borrowing',
-      'payroll.view',
-      'audit_logs.view',
-    ],
-    KASIR: ['glass_tips.view', 'glass_tips.verify', 'attendance.view', 'fleet.view'],
-    CHECKER: ['glass_tips.view', 'glass_tips.verify', 'attendance.view', 'fleet.view'],
-    CUTTER: ['glass_tips.view'],
-    DRIVER: ['fleet.view'],
-  };
-
   return (
     <div className="space-y-6">
       {toast && (
@@ -403,8 +401,8 @@ export const SettingsPage: React.FC = () => {
 
       {/* Header Halaman */}
       <PageHeader
-        title="Pengaturan Sistem & Hak Akses"
-        subtitle="Kelola akun pengguna, nama, jabatan, kata sandi, matriks RBAC, dan unit usaha secara mandiri."
+        title="Pengaturan Sistem & Akun Staf"
+        subtitle="Kelola akun pengguna, nama, jabatan, kata sandi, hak akses fitur, dan unit usaha secara mandiri."
         icon={<Settings className="w-6 h-6 text-kuk-maroon" />}
         breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Pengaturan Sistem' }]}
       />
@@ -433,18 +431,6 @@ export const SettingsPage: React.FC = () => {
         >
           <Database className="w-4 h-4 text-kuk-gold" />
           <span>Master Data Bisnis</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('RBAC')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-colors ${
-            activeTab === 'RBAC'
-              ? 'bg-kuk-maroon text-white shadow-xs'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Matriks Kewenangan RBAC</span>
         </button>
 
         <button
@@ -576,6 +562,7 @@ export const SettingsPage: React.FC = () => {
                     <th className="px-4 py-3">Jabatan Resmi</th>
                     <th className="px-4 py-3">Kata Sandi (PW)</th>
                     <th className="px-4 py-3">Unit / Toko</th>
+                    <th className="px-4 py-3">Akses Fitur</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Aksi</th>
                   </tr>
@@ -644,6 +631,19 @@ export const SettingsPage: React.FC = () => {
                           >
                             {isPalen ? '🏬 KUK PALEN' : '🏢 TB KUK LA TANSA'}
                           </span>
+                        </td>
+
+                        {/* Hak Akses Fitur */}
+                        <td className="px-4 py-3">
+                          {u.permissions?.includes('*') ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                              Semua Fitur (Full)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                              {u.permissions?.length || 0} Fitur Diizinkan
+                            </span>
+                          )}
                         </td>
 
                         {/* Status (Clickable to Toggle) */}
@@ -1202,61 +1202,6 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab: RBAC Matrix */}
-      {activeTab === 'RBAC' && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
-            <h2 className="font-bold text-sm text-gray-800">Matriks Hak Akses Kewenangan (Role Permission Matrix)</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Distribusi kewenangan operasional per peran pengguna sesuai arsitektur KUK Management System v3.1.0.
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 text-gray-700 font-semibold uppercase">
-                <tr>
-                  <th className="px-4 py-3 sticky left-0 bg-gray-50">Modul & Kewenangan</th>
-                  <th className="px-3 py-3 text-center">Pimpinan</th>
-                  <th className="px-3 py-3 text-center">Manager</th>
-                  <th className="px-3 py-3 text-center">Supervisor</th>
-                  <th className="px-3 py-3 text-center">Kasir</th>
-                  <th className="px-3 py-3 text-center">Checker</th>
-                  <th className="px-3 py-3 text-center">Cutter</th>
-                  <th className="px-3 py-3 text-center">Driver</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {permissionsList.map((perm) => (
-                  <tr key={perm.key} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 sticky left-0 bg-white font-medium text-gray-900 border-r border-gray-100">
-                      <div>{perm.label}</div>
-                      <div className="text-[10px] font-mono text-gray-400">{perm.key}</div>
-                    </td>
-                    {(['PIMPINAN', 'MANAGER', 'SUPERVISOR', 'KASIR', 'CHECKER', 'CUTTER', 'DRIVER'] as UserRole[]).map((r) => {
-                      const has = rolePermissionMap[r]?.includes(perm.key);
-                      return (
-                        <td key={r} className="px-3 py-3 text-center">
-                          {has ? (
-                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700">
-                              <Check className="w-3 h-3" />
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-300">
-                              <X className="w-3 h-3" />
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       {/* Tab: Business Units */}
       {activeTab === 'UNITS' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -1390,6 +1335,63 @@ export const SettingsPage: React.FC = () => {
                   <option value="bangunan">🏢 TB KUK La Tansa (Bangunan)</option>
                   <option value="palen">🏬 KUK Palen</option>
                 </select>
+              </div>
+
+              {/* Atur Menu & Fitur yang Dapat Diakses */}
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-800">
+                      Atur Menu & Fitur yang Dapat Diakses
+                    </label>
+                    <p className="text-[11px] text-gray-500">
+                      Centang fitur yang diizinkan untuk akun staf ini ({formPermissions.length} dipilih).
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllPermissions}
+                      className="px-2 py-1 text-[10px] font-semibold text-kuk-maroon hover:bg-kuk-maroon-50 rounded border border-kuk-maroon/20"
+                    >
+                      Pilih Semua
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearAllPermissions}
+                      className="px-2 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-100 rounded border border-gray-200"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  {SYSTEM_FEATURES.map((feat) => {
+                    const checked = formPermissions.includes(feat.id);
+                    return (
+                      <label
+                        key={feat.id}
+                        className={`flex items-start gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                          checked
+                            ? 'bg-white border-kuk-maroon/40 shadow-2xs'
+                            : 'bg-gray-50/50 border-gray-200 opacity-60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => togglePermission(feat.id)}
+                          className="mt-0.5 rounded text-kuk-maroon focus:ring-kuk-gold w-3.5 h-3.5 cursor-pointer"
+                        />
+                        <div className="leading-tight">
+                          <div className="font-bold text-gray-800 text-[11px]">{feat.label}</div>
+                          <div className="text-[10px] text-gray-500 mt-0.5">{feat.desc}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Status Aktif */}

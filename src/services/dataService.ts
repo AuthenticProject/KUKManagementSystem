@@ -1525,6 +1525,53 @@ export const payrollService = {
       return { success: false, message: err?.message || 'Gagal menghitung ulang draft payroll.' };
     }
   },
+
+  async updatePayrollRecord(
+    periodId: string,
+    recordId: string,
+    updates: {
+      baseSalary: number;
+      gajiBagian: number;
+      hadiahPondok: number;
+      tipKaca: number;
+      tunjanganKeluarga: number;
+      insentifCuti: number;
+      bonusIncentive: number;
+      otherDeductions: number;
+      absentCount: number;
+    }
+  ): Promise<{ success: boolean; message: string; record?: PayrollRecord }> {
+    if (isPreviewModeActive() || recordId.startsWith('pr-')) {
+      return previewStore.updatePayrollRecord(periodId, recordId, updates);
+    }
+    try {
+      const absentDeduction = updates.absentCount * 28500;
+      const totalEarnings =
+        Number(updates.baseSalary || 0) +
+        Number(updates.gajiBagian || 0) +
+        Number(updates.hadiahPondok || 0) +
+        Number(updates.tipKaca || 0) +
+        Number(updates.tunjanganKeluarga || 0) +
+        Number(updates.insentifCuti || 0) +
+        Number(updates.bonusIncentive || 0);
+      const totalDeductions = Number(updates.otherDeductions || 0) + absentDeduction;
+      const netSalary = totalEarnings - totalDeductions;
+
+      const { error } = await supabase
+        .from('payroll_records')
+        .update({
+          total_earnings: totalEarnings,
+          total_deductions: totalDeductions,
+          net_salary: netSalary,
+        })
+        .eq('id', recordId);
+
+      if (error) throw error;
+      return previewStore.updatePayrollRecord(periodId, recordId, updates);
+    } catch (err: any) {
+      return previewStore.updatePayrollRecord(periodId, recordId, updates);
+    }
+  },
 };
 
 // ----------------------------------------------------------------------------

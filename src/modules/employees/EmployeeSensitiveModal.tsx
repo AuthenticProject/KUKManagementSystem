@@ -67,7 +67,8 @@ export const EmployeeSensitiveModal: React.FC<EmployeeSensitiveModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManage || !activeUnitId) return;
+    const targetUnitId = activeUnitId || employee.unit_id || '00000000-0000-0000-0000-000000000001';
+    if (!canManage) return;
 
     if (!nik.trim() || !bankAccountNumber.trim()) {
       setError('NIK dan Nomor Rekening Bank wajib diisi.');
@@ -89,7 +90,7 @@ export const EmployeeSensitiveModal: React.FC<EmployeeSensitiveModalProps> = ({
       bpjs_kesehatan: bpjsKes.trim() || null,
     };
 
-    const res = await employeeService.saveSensitiveData(activeUnitId, payload);
+    const res = await employeeService.saveSensitiveData(targetUnitId, payload);
     setSaving(false);
 
     if (res.success) {

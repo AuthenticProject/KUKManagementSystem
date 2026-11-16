@@ -38,8 +38,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
   const [joinDate, setJoinDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
-    if (!isOpen || !activeUnitId) return;
-    const currentUnitId = activeUnitId;
+    if (!isOpen) return;
+    const currentUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
     async function loadMaster() {
       const [depts, pos, sch] = await Promise.all([
         employeeService.getDepartments(currentUnitId),
@@ -83,10 +83,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeUnitId) {
-      setError('Unit kerja aktif belum dipilih.');
-      return;
-    }
+    const targetUnitId = activeUnitId || employeeToEdit?.unit_id || '00000000-0000-0000-0000-000000000001';
     if (!fullName.trim()) {
       setError('Nama lengkap karyawan wajib diisi.');
       return;
@@ -115,7 +112,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       join_date: joinDate,
     };
 
-    const res = await employeeService.saveEmployee(activeUnitId, payload);
+    const res = await employeeService.saveEmployee(targetUnitId, payload);
     setLoading(false);
 
     if (res.success) {

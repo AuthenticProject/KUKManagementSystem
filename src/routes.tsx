@@ -22,7 +22,6 @@ import { PublicGlassTipPage } from '@/modules/public/PublicGlassTipPage';
 import { PublicFleetBookingPage } from '@/modules/public/PublicFleetBookingPage';
 import { PublicLeaveRequestPage } from '@/modules/public/PublicLeaveRequestPage';
 import { PublicLayananKaryawanPage } from '@/modules/public/PublicLayananKaryawanPage';
-import { AuditLogPage } from '@/modules/audit/AuditLogPage';
 import { SettingsPage } from '@/modules/settings/SettingsPage';
 
 export const AppRoutes: React.FC = () => {
@@ -139,15 +138,8 @@ export const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* 9. Audit Trail & Jejak Mutasi Data */}
-        <Route
-          path="/audit-logs"
-          element={
-            <PermissionGuard permission="audit_logs.view">
-              <AuditLogPage />
-            </PermissionGuard>
-          }
-        />
+        {/* 9. Audit Trail & Jejak Mutasi Data (Dinonaktifkan / Dialihkan ke Dashboard) */}
+        <Route path="/audit-logs" element={<Navigate to="/dashboard" replace />} />
 
         {/* 10. Pengaturan Sistem & RBAC */}
         <Route

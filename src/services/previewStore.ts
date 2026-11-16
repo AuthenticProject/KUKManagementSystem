@@ -19,6 +19,7 @@ import type {
   EmployeeJobHistory,
   GlassTip,
   PayrollPeriod,
+  PayrollRecord,
   Vehicle,
   VehicleBorrowingRequest,
   VehicleStatus,
@@ -37,6 +38,7 @@ export class PreviewStore {
   private violations: Record<string, ViolationRecord[]> = {};
   private warningLetters: Record<string, WarningLetter[]> = {};
   private payrollPeriods: Record<string, PayrollPeriod[]> = {};
+  private payrollRecords: Record<string, PayrollRecord[]> = {};
   private cashExpenses: Record<string, CashExpense[]> = {};
   private briefingSessions: Record<string, BriefingSession[]> = {};
   private sensitiveData: Record<string, EmployeeSensitiveData> = {};
@@ -71,6 +73,7 @@ export class PreviewStore {
         violations: this.violations,
         warningLetters: this.warningLetters,
         payrollPeriods: this.payrollPeriods,
+        payrollRecords: this.payrollRecords,
         cashExpenses: this.cashExpenses,
         briefingSessions: this.briefingSessions,
         sensitiveData: this.sensitiveData,
@@ -101,6 +104,7 @@ export class PreviewStore {
         this.violations = parsed.violations || {};
         this.warningLetters = parsed.warningLetters || {};
         this.payrollPeriods = parsed.payrollPeriods || {};
+        this.payrollRecords = parsed.payrollRecords || {};
         this.cashExpenses = parsed.cashExpenses || {};
         this.briefingSessions = parsed.briefingSessions || {};
         this.sensitiveData = parsed.sensitiveData || {};
@@ -148,6 +152,7 @@ export class PreviewStore {
     this.violations = {};
     this.warningLetters = {};
     this.payrollPeriods = {};
+    this.payrollRecords = {};
     this.cashExpenses = {};
     this.briefingSessions = {};
     this.sensitiveData = {};
@@ -1286,6 +1291,134 @@ export class PreviewStore {
       return { success: true, message: 'Periode payroll berhasil dikunci dan difinalisasi secara permanen.' };
     }
     return { success: false, message: 'Periode penggajian tidak ditemukan.' };
+  }
+
+  public getPayrollRecords(periodId: string, unitId: string = '00000000-0000-0000-0000-000000000001'): PayrollRecord[] {
+    if (!this.payrollRecords[periodId] || this.payrollRecords[periodId].length === 0) {
+      this.initUnit(unitId);
+      const emps = this.employees[unitId] || [];
+      if (emps.length === 0) {
+        this.payrollRecords[periodId] = [
+          {
+            id: `pr-1-${periodId}`,
+            unit_id: unitId,
+            payroll_period_id: periodId,
+            employee_id: 'emp-1',
+            slip_number: `SLIP-${periodId.substring(0, 8)}-0001`,
+            snapshot_employee_name: 'Budi Santoso',
+            snapshot_department_name: 'Gudang & Logistik',
+            snapshot_position_title: 'Sopir & Pemotong Kaca',
+            total_earnings: 3850000,
+            total_deductions: 100000,
+            net_salary: 3750000,
+            payment_status: 'PAID',
+            created_at: new Date().toISOString(),
+            items: [
+              { id: `it-1-1`, unit_id: unitId, payroll_record_id: `pr-1-${periodId}`, component_name: 'Gaji Pokok', component_type: 'ALLOWANCE', amount: 3200000 },
+              { id: `it-1-2`, unit_id: unitId, payroll_record_id: `pr-1-${periodId}`, component_name: 'Gaji Bagian', component_type: 'ALLOWANCE', amount: 350000 },
+              { id: `it-1-3`, unit_id: unitId, payroll_record_id: `pr-1-${periodId}`, component_name: 'Tip Kaca (3%)', component_type: 'ALLOWANCE', amount: 300000 },
+              { id: `it-1-4`, unit_id: unitId, payroll_record_id: `pr-1-${periodId}`, component_name: 'Potongan Lain / Kasbon', component_type: 'DEDUCTION', amount: 100000 },
+            ],
+          },
+        ];
+      } else {
+        this.payrollRecords[periodId] = emps.map((emp, idx) => {
+          const base = 2800000 + idx * 150000;
+          const bagian = 350000;
+          const hadiah = 200000;
+          const tip = idx % 2 === 0 ? 300000 : 0;
+          const tunjKel = emp.marital_status === 'MARRIED' ? 250000 : 0;
+          const bonus = 100000;
+          const totalEarn = base + bagian + hadiah + tip + tunjKel + bonus;
+          const potongan = 50000;
+          const net = totalEarn - potongan;
+          return {
+            id: `pr-${emp.id}-${periodId}`,
+            unit_id: emp.unit_id || unitId,
+            payroll_period_id: periodId,
+            employee_id: emp.id,
+            slip_number: `SLIP-${emp.employee_code || idx + 1}-${periodId.substring(0, 6)}`,
+            snapshot_employee_name: emp.full_name,
+            snapshot_department_name: emp.department?.name || 'Operasional',
+            snapshot_position_title: emp.position?.title || 'Staf',
+            total_earnings: totalEarn,
+            total_deductions: potongan,
+            net_salary: net,
+            payment_status: 'PENDING_PAYMENT',
+            created_at: new Date().toISOString(),
+            items: [
+              { id: `it-1-${emp.id}`, unit_id: emp.unit_id || unitId, payroll_record_id: `pr-${emp.id}-${periodId}`, component_name: 'Gaji Pokok', component_type: 'ALLOWANCE', amount: base },
+              { id: `it-2-${emp.id}`, unit_id: emp.unit_id || unitId, payroll_record_id: `pr-${emp.id}-${periodId}`, component_name: 'Gaji Bagian', component_type: 'ALLOWANCE', amount: bagian },
+              { id: `it-3-${emp.id}`, unit_id: emp.unit_id || unitId, payroll_record_id: `pr-${emp.id}-${periodId}`, component_name: 'Hadiah Pondok', component_type: 'ALLOWANCE', amount: hadiah },
+              { id: `it-4-${emp.id}`, unit_id: emp.unit_id || unitId, payroll_record_id: `pr-${emp.id}-${periodId}`, component_name: 'Tip Kaca (3%)', component_type: 'ALLOWANCE', amount: tip },
+              { id: `it-5-${emp.id}`, unit_id: emp.unit_id || unitId, payroll_record_id: `pr-${emp.id}-${periodId}`, component_name: 'Tunjangan Keluarga', component_type: 'ALLOWANCE', amount: tunjKel },
+              { id: `it-6-${emp.id}`, unit_id: emp.unit_id || unitId, payroll_record_id: `pr-${emp.id}-${periodId}`, component_name: 'Bonus Tambahan', component_type: 'BONUS', amount: bonus },
+              { id: `it-7-${emp.id}`, unit_id: emp.unit_id || unitId, payroll_record_id: `pr-${emp.id}-${periodId}`, component_name: 'Potongan Lain / Kasbon', component_type: 'DEDUCTION', amount: potongan },
+            ],
+          };
+        });
+      }
+      this.saveToStorage();
+    }
+    return this.payrollRecords[periodId] || [];
+  }
+
+  public updatePayrollRecord(
+    periodId: string,
+    recordId: string,
+    updates: {
+      baseSalary: number;
+      gajiBagian: number;
+      hadiahPondok: number;
+      tipKaca: number;
+      tunjanganKeluarga: number;
+      insentifCuti: number;
+      bonusIncentive: number;
+      otherDeductions: number;
+      absentCount: number;
+    }
+  ): { success: boolean; message: string; record?: PayrollRecord } {
+    const list = this.getPayrollRecords(periodId);
+    const rec = list.find((r) => r.id === recordId);
+    if (!rec) return { success: false, message: 'Slip gaji tidak ditemukan.' };
+
+    const absentDeduction = updates.absentCount * 28500;
+    const totalEarnings =
+      Number(updates.baseSalary || 0) +
+      Number(updates.gajiBagian || 0) +
+      Number(updates.hadiahPondok || 0) +
+      Number(updates.tipKaca || 0) +
+      Number(updates.tunjanganKeluarga || 0) +
+      Number(updates.insentifCuti || 0) +
+      Number(updates.bonusIncentive || 0);
+    const totalDeductions = Number(updates.otherDeductions || 0) + absentDeduction;
+    const netSalary = totalEarnings - totalDeductions;
+
+    rec.total_earnings = totalEarnings;
+    rec.total_deductions = totalDeductions;
+    rec.net_salary = netSalary;
+    rec.items = [
+      { id: `it-1-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Gaji Pokok', component_type: 'ALLOWANCE', amount: updates.baseSalary },
+      { id: `it-2-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Gaji Bagian', component_type: 'ALLOWANCE', amount: updates.gajiBagian },
+      { id: `it-3-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Hadiah Pondok', component_type: 'ALLOWANCE', amount: updates.hadiahPondok },
+      { id: `it-4-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Tip Kaca (3%)', component_type: 'ALLOWANCE', amount: updates.tipKaca },
+      { id: `it-5-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Tunjangan Keluarga', component_type: 'ALLOWANCE', amount: updates.tunjanganKeluarga },
+      { id: `it-6-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Insentif Cuti', component_type: 'ALLOWANCE', amount: updates.insentifCuti },
+      { id: `it-7-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Bonus Tambahan', component_type: 'BONUS', amount: updates.bonusIncentive },
+      { id: `it-8-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Potongan Absensi / Alpa', component_type: 'DEDUCTION', amount: absentDeduction },
+      { id: `it-9-${recordId}`, unit_id: rec.unit_id, payroll_record_id: rec.id, component_name: 'Potongan Lain / Kasbon', component_type: 'DEDUCTION', amount: updates.otherDeductions },
+    ];
+
+    // Update parent period total
+    Object.keys(this.payrollPeriods).forEach((uId) => {
+      const p = this.payrollPeriods[uId]?.find((x) => x.id === periodId);
+      if (p) {
+        p.total_net_payout = list.reduce((sum, item) => sum + item.net_salary, 0);
+      }
+    });
+
+    this.saveToStorage();
+    return { success: true, message: `Data gaji "${rec.snapshot_employee_name}" berhasil diperbarui!`, record: rec };
   }
 
   // --- 8. CASH EXPENSES (PETTY CASH) ---

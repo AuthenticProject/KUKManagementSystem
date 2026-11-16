@@ -12,7 +12,6 @@ import {
   Banknote,
   Wallet,
   Truck,
-  FileSearch,
   Settings,
   X,
   ExternalLink,
@@ -111,14 +110,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
       ],
     },
     {
-      groupTitle: 'SISTEM & AUDIT',
+      groupTitle: 'PENGATURAN',
       items: [
-        {
-          to: '/audit-logs',
-          label: 'Audit & Jejak Mutasi',
-          icon: FileSearch,
-          show: hasPermission('audit_logs.view', activeUnitId),
-        },
         {
           to: '/settings',
           label: 'Pengaturan Sistem',

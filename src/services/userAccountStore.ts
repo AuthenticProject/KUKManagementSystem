@@ -303,12 +303,28 @@ class UserAccountStore {
         password: user.password !== undefined ? user.password : existing.password,
         toko: user.toko || existing.toko,
         role: user.role || existing.role,
+        permissions: user.permissions !== undefined ? user.permissions : existing.permissions,
         is_active: user.is_active !== undefined ? user.is_active : existing.is_active,
         email: user.email || `${cleanUsername.toLowerCase()}@kuk.co.id`,
         updated_at: new Date().toISOString(),
       };
       users[existingIdx] = updated;
       this.saveAllUsers(users);
+
+      // Sinkronkan sesi aktif jika akun yang diedit sedang login
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        try {
+          const current = window.sessionStorage.getItem('kuk_user');
+          if (current) {
+            const parsed = JSON.parse(current);
+            if (parsed && (parsed.id === updated.id || parsed.username === updated.username)) {
+              window.sessionStorage.setItem('kuk_user', JSON.stringify(updated));
+            }
+          }
+        } catch {
+          // Ignored
+        }
+      }
       return {
         success: true,
         message: `Akun staf "${updated.namaLengkap}" berhasil diperbarui.`,

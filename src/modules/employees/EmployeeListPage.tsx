@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 export const EmployeeListPage: React.FC = () => {
-  const { activeUnit, activeUnitId } = useUnit();
+  const { activeUnit, activeUnitId, availableUnits } = useUnit();
   const { hasPermission } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -67,22 +67,44 @@ export const EmployeeListPage: React.FC = () => {
   const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
 
   const loadData = async () => {
-    if (!activeUnitId) return;
     setLoading(true);
     setError(null);
-    const res = await employeeService.getEmployeesByUnit(activeUnitId);
-    setEmployees(res.data);
-    setIsFixture(res.isFixture);
-    if (!res.success && res.error) {
-      setError(res.error);
+    try {
+      if (!activeUnitId) {
+        // Mode Dua Toko (Pusat / Semua Toko): Muat data karyawan dari kedua unit secara paralel
+        const targetUnits = availableUnits.length > 0
+          ? availableUnits
+          : [
+              { id: '00000000-0000-0000-0000-000000000001', name: 'TB KUK La Tansa' },
+              { id: '00000000-0000-0000-0000-000000000002', name: 'KUK Palen' },
+            ];
+
+        const results = await Promise.all(
+          targetUnits.map((u) => employeeService.getEmployeesByUnit(u.id))
+        );
+        const combined = results.flatMap((r) => r.data || []);
+        const uniqueEmps = Array.from(new Map(combined.map((e) => [e.id, e])).values());
+        setEmployees(uniqueEmps);
+        setIsFixture(results.some((r) => r.isFixture));
+      } else {
+        const res = await employeeService.getEmployeesByUnit(activeUnitId);
+        setEmployees(res.data || []);
+        setIsFixture(res.isFixture);
+        if (!res.success && res.error) {
+          setError(res.error);
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Gagal memuat data karyawan.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     loadData();
     setPage(1);
-  }, [activeUnitId]);
+  }, [activeUnitId, availableUnits]);
 
   const showToast = (msg: string, isError = false) => {
     setToast({ text: msg, isError });
