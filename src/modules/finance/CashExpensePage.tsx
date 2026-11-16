@@ -33,7 +33,6 @@ export const CashExpensePage: React.FC = () => {
 
   const [expenses, setExpenses] = useState<CashExpense[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
 
@@ -62,12 +61,11 @@ export const CashExpensePage: React.FC = () => {
   const canApprove = hasPermission('finance.approve', activeUnitId) || hasPermission('admin.all', activeUnitId);
 
   const loadExpenses = async () => {
-    if (!activeUnitId) return;
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
     setLoading(true);
     setError(null);
-    const res = await financeService.getExpensesByUnit(activeUnitId);
+    const res = await financeService.getExpensesByUnit(targetUnitId);
     setExpenses(res.data);
-    setIsFixture(res.isFixture);
     if (!res.success && res.error) {
       setError(res.error);
     }
@@ -332,16 +330,6 @@ export const CashExpensePage: React.FC = () => {
           >
             Coba Lagi
           </button>
-        </div>
-      )}
-
-      {/* Fixture Alert Banner */}
-      {isFixture && !error && !loading && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>
-            <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Data pengeluaran di bawah ini adalah sampel preview lokal terisolasi dan tidak tersimpan di database Production.
-          </span>
         </div>
       )}
 

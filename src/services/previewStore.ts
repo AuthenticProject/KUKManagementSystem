@@ -343,12 +343,28 @@ export class PreviewStore {
       }
     }
 
+    const posObj = (this.positions[unitId] || []).find(p => p.id === employee.position_id);
+    const deptObj = (this.departments[unitId] || []).find(d => d.id === employee.department_id);
+
     if (employee.id) {
       const idx = currentList.findIndex(e => e.id === employee.id);
       if (idx >= 0) {
-        currentList[idx] = { ...currentList[idx], ...employee, updated_at: new Date().toISOString() } as Employee;
+        currentList[idx] = {
+          ...currentList[idx],
+          ...employee,
+          position: posObj || currentList[idx].position,
+          department: deptObj || currentList[idx].department,
+          updated_at: new Date().toISOString()
+        } as Employee;
       } else {
-        currentList.push({ ...employee, unit_id: unitId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as Employee);
+        currentList.push({
+          ...employee,
+          position: posObj,
+          department: deptObj,
+          unit_id: unitId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as Employee);
       }
     } else {
       const newId = `emp-${unitId.substring(0, 4)}-${Date.now().toString().slice(-4)}`;
@@ -370,8 +386,8 @@ export class PreviewStore {
         join_date: employee.join_date || new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        department: { id: employee.department_id || 'dept-01', unit_id: unitId, code: 'OPERASIONAL', name: 'Operasional Lapangan', is_active: true, created_at: '' },
-        position: { id: employee.position_id || 'pos-01', unit_id: unitId, department_id: employee.department_id || 'dept-01', code: 'STAFF', title: 'Staf Operasional', level: 1, is_active: true, created_at: '' },
+        department: deptObj || { id: employee.department_id || 'dept-01', unit_id: unitId, code: 'OPERASIONAL', name: 'Operasional Lapangan', is_active: true, created_at: '' },
+        position: posObj || { id: employee.position_id || 'pos-01', unit_id: unitId, department_id: employee.department_id || 'dept-01', code: 'STAFF', title: 'Staf Operasional', level: 1, is_active: true, created_at: '' },
         work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
       };
       currentList.push(newEmp);

@@ -33,7 +33,6 @@ export const GlassTipListPage: React.FC = () => {
   const [glassTypes, setGlassTypes] = useState<GlassType[]>([]);
   const [glassRates, setGlassRates] = useState<GlassTipRate[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
@@ -74,14 +73,14 @@ export const GlassTipListPage: React.FC = () => {
   const [tSubmitting, setTSubmitting] = useState(false);
 
   const loadData = async () => {
-    if (!activeUnitId) return;
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
     setLoading(true);
     setError(null);
     const [res, types, rates, empRes] = await Promise.all([
-      glassTipService.getGlassTipsByUnit(activeUnitId),
-      glassTipService.getGlassTypes(activeUnitId),
-      glassTipService.getGlassTipRates(activeUnitId),
-      employeeService.getEmployeesByUnit(activeUnitId),
+      glassTipService.getGlassTipsByUnit(targetUnitId),
+      glassTipService.getGlassTypes(targetUnitId),
+      glassTipService.getGlassTipRates(targetUnitId),
+      employeeService.getEmployeesByUnit(targetUnitId),
     ]);
     setTips(res.data);
     setGlassTypes(types);
@@ -94,7 +93,6 @@ export const GlassTipListPage: React.FC = () => {
     if (types.length > 0 && !tGlassTypeId) {
       setTGlassTypeId(types[0].id);
     }
-    setIsFixture(res.isFixture);
     if (!res.success && res.error) {
       setError(res.error);
     }
@@ -102,9 +100,9 @@ export const GlassTipListPage: React.FC = () => {
   };
 
   const loadCutterRecap = async () => {
-    if (!activeUnitId) return;
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
     setRecapLoading(true);
-    const res = await glassTipService.getCutterTipPayrollRecap(activeUnitId);
+    const res = await glassTipService.getCutterTipPayrollRecap(targetUnitId);
     setCutterRecap(res.data || []);
     setRecapLoading(false);
   };
@@ -369,16 +367,6 @@ export const GlassTipListPage: React.FC = () => {
           >
             Coba Lagi
           </button>
-        </div>
-      )}
-
-      {/* Fixture Alert Banner */}
-      {isFixture && !error && !loading && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>
-            <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Data di bawah ini adalah sampel preview lokal terisolasi dan tidak tersimpan di database Production.
-          </span>
         </div>
       )}
 

@@ -21,7 +21,6 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
   const [activeTab, setActiveTab] = useState<'view' | 'create'>('view');
   const [history, setHistory] = useState<EmployeeJobHistory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Mutation form state
@@ -29,6 +28,7 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
   const [positions, setPositions] = useState<Position[]>([]);
   const [toUnitId, setToUnitId] = useState<string>(unitId);
   const [toPositionId, setToPositionId] = useState<string>('');
+  const [customToPositionTitle, setCustomToPositionTitle] = useState<string>('');
   const [transitionType, setTransitionType] = useState<'PROMOTION' | 'MUTATION' | 'DEMOTION'>('PROMOTION');
   const [effectiveDate, setEffectiveDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState<string>('');
@@ -42,7 +42,6 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
     try {
       const res = await employeeService.getEmployeeJobHistory(unitId, employee.id);
       setHistory(res.data);
-      setIsFixture(res.isFixture);
       if (!res.success && res.error) {
         setError(res.error);
       }
@@ -74,6 +73,7 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
         setPositions(posList);
         if (posList.length > 0) {
           setToPositionId(posList[0].id);
+          setCustomToPositionTitle(posList[0].title);
         }
       });
     }
@@ -81,7 +81,8 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
 
   const handleSubmitTransition = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employee || !toUnitId || !toPositionId || !effectiveDate) {
+    const trimmedTitle = customToPositionTitle.trim();
+    if (!employee || !toUnitId || !trimmedTitle || !effectiveDate) {
       setError('Unit, Posisi Baru, dan Tanggal Efektif wajib diisi.');
       return;
     }
@@ -89,10 +90,22 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
     setSubmitting(true);
     setError(null);
     try {
+      // Resolve or create custom position
+      let finalToPosId = toPositionId;
+      const matchPos = positions.find((p) => p.title.toLowerCase() === trimmedTitle.toLowerCase());
+      if (matchPos) {
+        finalToPosId = matchPos.id;
+      } else {
+        const createRes = await employeeService.savePosition(toUnitId, { title: trimmedTitle });
+        if (createRes.position) {
+          finalToPosId = createRes.position.id;
+        }
+      }
+
       const res = await employeeService.recordJobTransition(unitId, {
         employee_id: employee.id,
         to_unit_id: toUnitId,
-        to_position_id: toPositionId,
+        to_position_id: finalToPosId || toPositionId,
         effective_date: effectiveDate,
         transition_type: transitionType,
         notes: notes.trim() || undefined,
@@ -190,15 +203,6 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
 
           {activeTab === 'view' ? (
             <>
-              {isFixture && !error && !loading && (
-                <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-                  <span>
-                    <strong>Zero-State Preview:</strong> Riwayat di bawah ini adalah sampel simulasi lokal.
-                  </span>
-                </div>
-              )}
-
               <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                 {loading ? (
                   <div className="py-8 text-center text-xs text-gray-500">Memuat riwayat jabatan...</div>
@@ -265,16 +269,31 @@ export const JobHistoryModal: React.FC<JobHistoryModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Jabatan Baru</label>
-                  <select
-                    value={toPositionId}
-                    onChange={(e) => setToPositionId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-kuk-maroon"
-                  >
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-gray-700">Jabatan Baru</label>
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                      ✏️ Bebas Diketik
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    list="history-position-suggestions"
+                    required
+                    value={customToPositionTitle}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomToPositionTitle(val);
+                      const found = positions.find((p) => p.title.toLowerCase() === val.toLowerCase());
+                      if (found) setToPositionId(found.id);
+                    }}
+                    placeholder="Pilih atau ketik jabatan..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-kuk-maroon bg-white"
+                  />
+                  <datalist id="history-position-suggestions">
                     {positions.map((p) => (
-                      <option key={p.id} value={p.id}>{p.title}</option>
+                      <option key={p.id} value={p.title} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
 

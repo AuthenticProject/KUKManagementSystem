@@ -42,7 +42,6 @@ export const EmployeeListPage: React.FC = () => {
   const { hasPermission } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -90,11 +89,9 @@ export const EmployeeListPage: React.FC = () => {
         const combined = results.flatMap((r) => r.data || []);
         const uniqueEmps = Array.from(new Map(combined.map((e) => [e.id, e])).values());
         setEmployees(uniqueEmps);
-        setIsFixture(results.some((r) => r.isFixture));
       } else {
         const res = await employeeService.getEmployeesByUnit(activeUnitId);
         setEmployees(res.data || []);
-        setIsFixture(res.isFixture);
         if (!res.success && res.error) {
           setError(res.error);
         }
@@ -335,18 +332,6 @@ export const EmployeeListPage: React.FC = () => {
           >
             Coba Lagi
           </button>
-        </div>
-      )}
-
-      {/* Fixture Alert Banner */}
-      {isFixture && !error && !loading && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Data di bawah ini adalah sampel pratinjau terisolasi dan tidak tersimpan di database Production.
-            </span>
-          </div>
         </div>
       )}
 

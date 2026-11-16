@@ -136,16 +136,6 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Fixture Alert Banner */}
-      {summary?.isFixture && !summary?.error && !loading && (
-        <div className="p-4 bg-[#FFF9D6] border border-[#FFE066] rounded-2xl text-[#996414] text-xs flex items-center gap-2 font-medium">
-          <AlertCircle className="w-4 h-4 text-[#996414] shrink-0" />
-          <span>
-            <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Seluruh metrik agregat di bawah ini dihitung dari data contoh lokal tanpa koneksi remote.
-          </span>
-        </div>
-      )}
-
       {/* Metric Cards Grid - Role-Aware Information Architecture */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* 1. Karyawan */}

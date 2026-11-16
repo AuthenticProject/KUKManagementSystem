@@ -15,7 +15,6 @@ export const ViolationListPage: React.FC = () => {
   const [warningLetters, setWarningLetters] = useState<WarningLetter[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'violations' | 'warning_letters'>('violations');
   const [toast, setToast] = useState<string | null>(null);
@@ -41,18 +40,17 @@ export const ViolationListPage: React.FC = () => {
   const [vSaving, setVSaving] = useState(false);
 
   const loadData = async () => {
-    if (!activeUnitId) return;
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
     setLoading(true);
     setError(null);
     const [vRes, spRes, empRes] = await Promise.all([
-      violationService.getViolationsByUnit(activeUnitId),
-      violationService.getWarningLettersByUnit(activeUnitId),
-      employeeService.getEmployeesByUnit(activeUnitId),
+      violationService.getViolationsByUnit(targetUnitId),
+      violationService.getWarningLettersByUnit(targetUnitId),
+      employeeService.getEmployeesByUnit(targetUnitId),
     ]);
     setViolations(vRes.data);
     setWarningLetters(spRes.data);
     setEmployees(empRes.data);
-    setIsFixture(vRes.isFixture || spRes.isFixture);
     if (!vRes.success && vRes.error) {
       setError(vRes.error);
     } else if (!spRes.success && spRes.error) {
@@ -206,16 +204,6 @@ export const ViolationListPage: React.FC = () => {
           >
             Coba Lagi
           </button>
-        </div>
-      )}
-
-      {/* Fixture Alert Banner */}
-      {isFixture && !error && !loading && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>
-            <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Data di bawah ini adalah sampel preview lokal terisolasi dan tidak tersimpan di database Production.
-          </span>
         </div>
       )}
 

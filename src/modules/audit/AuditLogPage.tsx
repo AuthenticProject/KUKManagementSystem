@@ -19,7 +19,6 @@ export const AuditLogPage: React.FC = () => {
   const { activeUnit, activeUnitId } = useUnit();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
@@ -32,12 +31,11 @@ export const AuditLogPage: React.FC = () => {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const loadData = async () => {
-    if (!activeUnitId) return;
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
     setLoading(true);
     setError(null);
-    const res = await auditService.getAuditLogs(activeUnitId);
+    const res = await auditService.getAuditLogs(targetUnitId);
     setLogs(res.data);
-    setIsFixture(res.isFixture);
     if (!res.success && res.error) {
       setError(res.error);
     }
@@ -127,16 +125,6 @@ export const AuditLogPage: React.FC = () => {
           >
             Coba Lagi
           </button>
-        </div>
-      )}
-
-      {/* Fixture Alert Banner */}
-      {isFixture && !error && !loading && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>
-            <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Data di bawah ini adalah sampel preview lokal terisolasi dan tidak tersimpan di database Production.
-          </span>
         </div>
       )}
 

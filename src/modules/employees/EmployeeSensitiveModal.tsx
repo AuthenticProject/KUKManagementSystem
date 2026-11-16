@@ -24,7 +24,6 @@ export const EmployeeSensitiveModal: React.FC<EmployeeSensitiveModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isFixture, setIsFixture] = useState(false);
 
   const canManage = hasPermission('employees.manage_sensitive', activeUnitId);
 
@@ -45,7 +44,6 @@ export const EmployeeSensitiveModal: React.FC<EmployeeSensitiveModalProps> = ({
       setError(null);
       const res = await employeeService.getSensitiveData(currentUnitId, employee.id);
       setData(res.data);
-      setIsFixture(res.isFixture);
       if (!res.success && res.error) {
         setError(res.error);
       }
@@ -137,15 +135,6 @@ export const EmployeeSensitiveModal: React.FC<EmployeeSensitiveModalProps> = ({
             <div className="p-3 mb-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
-            </div>
-          )}
-
-          {isFixture && !error && !loading && (
-            <div className="p-3 mb-4 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-              <span>
-                <strong>Zero-State Preview:</strong> Data sensitif di bawah ini adalah sampel pratinjau lokal dan tidak tersimpan di database.
-              </span>
             </div>
           )}
 

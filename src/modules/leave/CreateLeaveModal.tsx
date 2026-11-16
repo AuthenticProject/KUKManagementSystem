@@ -6,7 +6,6 @@ import {
   X,
   AlertCircle,
   CheckCircle2,
-  Lock,
   Sparkles,
   ChevronLeft,
   ChevronRight,
@@ -389,20 +388,13 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
 
             {/* Window Status Badge */}
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] pt-1 border-t border-gray-200/60">
-              <span className="text-gray-500">
-                Batas pengajuan: {windowStatus.windowOpen} s/d {windowStatus.windowClose}
+              <span className="text-gray-500 font-medium">
+                Periode: {windowStatus.monthLabel}
               </span>
-              {windowStatus.isOpen ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 text-[10px]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                  <span>🟢 Jendela Resmi Terbuka</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 text-[10px]">
-                  <Lock className="w-3 h-3 text-amber-700" />
-                  <span>🔒 Di Luar Jendela (Dispensasi HRD)</span>
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                <span>🟢 Layanan Terbuka (Dapat Diakses Kapan Saja)</span>
+              </span>
             </div>
           </div>
 

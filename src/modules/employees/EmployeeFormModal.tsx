@@ -29,6 +29,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
   const [employeeCode, setEmployeeCode] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [positionId, setPositionId] = useState('');
+  const [customDepartmentName, setCustomDepartmentName] = useState('');
+  const [customPositionTitle, setCustomPositionTitle] = useState('');
   const [workScheduleId, setWorkScheduleId] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -55,6 +57,10 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
         setEmployeeCode(employeeToEdit.employee_code);
         setDepartmentId(employeeToEdit.department_id);
         setPositionId(employeeToEdit.position_id);
+        const existingPos = pos.find((p) => p.id === employeeToEdit.position_id);
+        setCustomPositionTitle(existingPos?.title || employeeToEdit.position?.title || '');
+        const existingDept = depts.find((d) => d.id === employeeToEdit.department_id);
+        setCustomDepartmentName(existingDept?.name || employeeToEdit.department?.name || '');
         setWorkScheduleId(employeeToEdit.work_schedule_id);
         setEmail(employeeToEdit.email || '');
         setPhone(employeeToEdit.phone || '');
@@ -66,7 +72,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
         setFullName('');
         setEmployeeCode(`EMP-${activeUnit?.code || 'UNIT'}-${Math.floor(100 + Math.random() * 900)}`);
         setDepartmentId(depts[0]?.id || '');
+        setCustomDepartmentName(depts[0]?.name || 'Operasional Lapangan');
         setPositionId(pos[0]?.id || '');
+        setCustomPositionTitle(pos[0]?.title || 'Staf Operasional');
         setWorkScheduleId(sch[0]?.id || '');
         setEmail('');
         setPhone('');
@@ -88,21 +96,52 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setError('Nama lengkap karyawan wajib diisi.');
       return;
     }
-    if (!departmentId || !positionId || !workScheduleId) {
-      setError('Departemen, jabatan, dan jadwal kerja wajib dipilih.');
+
+    const trimmedDept = customDepartmentName.trim();
+    const trimmedPos = customPositionTitle.trim();
+
+    if (!trimmedDept || !trimmedPos) {
+      setError('Departemen/bagian dan jabatan wajib diisi.');
       return;
     }
 
     setLoading(true);
     setError(null);
 
+    // Resolve or automatically create department
+    let finalDeptId = departmentId;
+    const matchDept = departments.find((d) => d.name.toLowerCase() === trimmedDept.toLowerCase());
+    if (matchDept) {
+      finalDeptId = matchDept.id;
+    } else {
+      const deptRes = await employeeService.saveDepartment(targetUnitId, { name: trimmedDept });
+      if (deptRes.department) {
+        finalDeptId = deptRes.department.id;
+      }
+    }
+
+    // Resolve or automatically create position
+    let finalPosId = positionId;
+    const matchPos = positions.find((p) => p.title.toLowerCase() === trimmedPos.toLowerCase());
+    if (matchPos) {
+      finalPosId = matchPos.id;
+    } else {
+      const posRes = await employeeService.savePosition(targetUnitId, {
+        title: trimmedPos,
+        department_id: finalDeptId || undefined,
+      });
+      if (posRes.position) {
+        finalPosId = posRes.position.id;
+      }
+    }
+
     const payload: Partial<Employee> = {
       id: employeeToEdit ? employeeToEdit.id : undefined,
       full_name: fullName.trim(),
       employee_code: employeeCode.trim(),
-      department_id: departmentId,
-      position_id: positionId,
-      work_schedule_id: workScheduleId,
+      department_id: finalDeptId || 'dept-01',
+      position_id: finalPosId || 'pos-01',
+      work_schedule_id: workScheduleId || schedules[0]?.id || 'sch-01',
       email: email.trim() || null,
       phone: phone.trim() || null,
       gender,
@@ -171,33 +210,59 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Departemen / Bagian *</label>
-              <select
-                value={departmentId}
-                onChange={(e) => setDepartmentId(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
-              >
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-700">Departemen / Bagian *</label>
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  ✏️ Bebas Diketik
+                </span>
+              </div>
+              <input
+                type="text"
+                list="department-suggestions"
+                required
+                value={customDepartmentName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomDepartmentName(val);
+                  const found = departments.find((d) => d.name.toLowerCase() === val.toLowerCase());
+                  if (found) setDepartmentId(found.id);
+                }}
+                placeholder="Pilih atau tulis bagian/divisi baru..."
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white font-medium focus:outline-hidden focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+              />
+              <datalist id="department-suggestions">
                 {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
+                  <option key={d.id} value={d.name} />
                 ))}
-              </select>
+              </datalist>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Jabatan / Posisi *</label>
-              <select
-                value={positionId}
-                onChange={(e) => setPositionId(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
-              >
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-700">Jabatan / Posisi *</label>
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  ✏️ Bebas Diketik
+                </span>
+              </div>
+              <input
+                type="text"
+                list="position-suggestions"
+                required
+                value={customPositionTitle}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomPositionTitle(val);
+                  const found = positions.find((p) => p.title.toLowerCase() === val.toLowerCase());
+                  if (found) setPositionId(found.id);
+                }}
+                placeholder="Pilih atau tulis nama jabatan baru..."
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white font-medium focus:outline-hidden focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+              />
+              <datalist id="position-suggestions">
                 {positions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
+                  <option key={p.id} value={p.title} />
                 ))}
-              </select>
+              </datalist>
             </div>
 
             <div>

@@ -28,7 +28,6 @@ export const PayrollDashboardPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<PayrollPeriod | null>(null);
   const [records, setRecords] = useState<PayrollRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
 
@@ -68,7 +67,6 @@ export const PayrollDashboardPage: React.FC = () => {
       const targetUnitId = activeUnitId || availableUnits[0]?.id || '00000000-0000-0000-0000-000000000001';
       const pRes = await payrollService.getPayrollPeriods(targetUnitId);
       setPeriods(pRes.data);
-      setIsFixture(pRes.isFixture);
       if (!pRes.success && pRes.error) {
         setError(pRes.error);
       }
@@ -345,16 +343,6 @@ export const PayrollDashboardPage: React.FC = () => {
           >
             Coba Lagi
           </button>
-        </div>
-      )}
-
-      {/* Fixture Alert Banner */}
-      {isFixture && !error && !loading && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>
-            <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Data di bawah ini adalah sampel preview lokal terisolasi dan tidak tersimpan di database Production.
-          </span>
         </div>
       )}
 

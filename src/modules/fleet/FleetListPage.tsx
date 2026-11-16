@@ -43,7 +43,6 @@ export const FleetListPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [requests, setRequests] = useState<VehicleBorrowingRequest[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'vehicles' | 'requests'>('vehicles');
   const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
@@ -83,11 +82,11 @@ export const FleetListPage: React.FC = () => {
   };
 
   const handleDeleteVehicle = async (veh: Vehicle) => {
-    if (!activeUnitId) return;
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
     if (!window.confirm(`Yakin ingin menghapus armada "${veh.brand} ${veh.model} (${veh.license_plate})"?`)) {
       return;
     }
-    const res = await fleetService.deleteVehicle(activeUnitId, veh.id);
+    const res = await fleetService.deleteVehicle(targetUnitId, veh.id);
     showToast(res.message, !res.success);
     if (res.success) {
       loadData();
@@ -155,19 +154,18 @@ export const FleetListPage: React.FC = () => {
   const canApproveBorrowing = hasPermission('fleet.approve_borrowing', activeUnitId);
 
   const loadData = async () => {
-    if (!activeUnitId) return;
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
     setLoading(true);
     setError(null);
     const [vRes, rRes] = await Promise.all([
-      fleetService.getVehiclesByUnit(activeUnitId),
-      fleetService.getBorrowingRequests(activeUnitId),
+      fleetService.getVehiclesByUnit(targetUnitId),
+      fleetService.getBorrowingRequests(targetUnitId),
     ]);
     setVehicles(vRes.data);
     setRequests(rRes.data);
     if (vRes.data.length > 0 && !bVehicleId) {
       setBVehicleId(vRes.data[0].id);
     }
-    setIsFixture(vRes.isFixture || rRes.isFixture);
     if (!vRes.success && vRes.error) {
       setError(vRes.error);
     } else if (!rRes.success && rRes.error) {
@@ -187,10 +185,11 @@ export const FleetListPage: React.FC = () => {
 
   const handleCreateVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeUnitId || !vPlate.trim() || !vModel.trim()) return;
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
+    if (!vPlate.trim() || !vModel.trim()) return;
 
     setVSaving(true);
-    const res = await fleetService.saveVehicle(activeUnitId, {
+    const res = await fleetService.saveVehicle(targetUnitId, {
       id: editingVehicleId || undefined,
       license_plate: vPlate.trim().toUpperCase(),
       brand: vBrand.trim(),
@@ -688,16 +687,6 @@ export const FleetListPage: React.FC = () => {
           >
             Coba Lagi
           </button>
-        </div>
-      )}
-
-      {/* Fixture Alert Banner */}
-      {isFixture && !error && !loading && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>
-            <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Data di bawah ini adalah sampel preview lokal terisolasi dan tidak tersimpan di database Production.
-          </span>
         </div>
       )}
 
