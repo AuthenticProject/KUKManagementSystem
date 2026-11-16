@@ -107,6 +107,51 @@ export const PublicLeaveRequestPage: React.FC = () => {
   const selectedEmp = employees.find((e) => e.id === selectedEmpId);
   const targetMonthStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
 
+  // Check if selected employee is Admin 3 (or code ADM3 / Irvan / K-011)
+  const isAdmin3 = React.useMemo(() => {
+    if (!selectedEmp) return false;
+    const posCode = String(selectedEmp.position?.code || '').toUpperCase();
+    const posTitle = String(selectedEmp.position?.title || '').toLowerCase();
+    const deptName = String(selectedEmp.department?.name || '').toLowerCase();
+    const empName = String(selectedEmp.full_name || '').toLowerCase();
+    const empCode = String(selectedEmp.employee_code || '').toUpperCase();
+    return (
+      posCode.includes('ADM3') ||
+      posTitle.includes('admin 3') ||
+      deptName.includes('admin 3') ||
+      empName.includes('irvan') ||
+      empCode === 'K-011'
+    );
+  }, [selectedEmp]);
+
+  // Department Booked Dates by other colleagues in the same department
+  const bookedDatesByDept = React.useMemo(() => {
+    if (!selectedEmp) return new Set<string>();
+    const deptName = (selectedEmp.department?.name || '').toLowerCase();
+    const booked = new Set<string>();
+
+    recentLeaves.forEach((leave) => {
+      // Must not be the same employee
+      if (leave.employee_id === selectedEmp.id) return;
+      // Must be approved or pending
+      if (leave.status !== 'APPROVED' && leave.status !== 'PENDING') return;
+
+      const colleague = employees.find((e) => e.id === leave.employee_id);
+      const colDept = (colleague?.department?.name || '').toLowerCase();
+
+      if (deptName && colDept === deptName) {
+        if (Array.isArray(leave.dates)) {
+          leave.dates.forEach((d) => {
+            const dateVal = typeof d === 'string' ? d : (d as any).leave_date;
+            if (dateVal) booked.add(dateVal);
+          });
+        }
+      }
+    });
+
+    return booked;
+  }, [selectedEmp, recentLeaves, employees]);
+
   // Interactive Calendar Generation
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay(); // 0 is Sunday
@@ -115,10 +160,15 @@ export const PublicLeaveRequestPage: React.FC = () => {
     const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const dayOfWeek = new Date(viewYear, viewMonth, day).getDay();
 
-    // Check if Admin 3 restriction applies (only Sunday allowed)
-    const isIrvan = selectedEmp?.full_name.toLowerCase().includes('irvan') || selectedEmp?.position?.code === 'ADM3';
-    if (isIrvan && dayOfWeek !== 0) {
-      setErrorMsg(`Perhatian: Jabatan ${selectedEmp?.position?.title || 'Admin 3'} hanya diizinkan mengambil cuti di hari Minggu.`);
+    // Check if Admin 3 restriction applies (only Sunday / Ahad allowed)
+    if (isAdmin3 && dayOfWeek !== 0) {
+      setErrorMsg('Aturan Khusus Admin 3 (Irvan): Pengajuan cuti HANYA diperbolehkan pada hari Ahad / Minggu.');
+      return;
+    }
+
+    // Check department clash / bentrok sesama bagian
+    if (bookedDatesByDept.has(dateStr)) {
+      setErrorMsg(`Tanggal ${dateStr} sudah diambil oleh rekan satu bagian (${selectedEmp?.department?.name || 'Departemen'})!`);
       return;
     }
 
@@ -161,10 +211,9 @@ export const PublicLeaveRequestPage: React.FC = () => {
       setErrorMsg('Pilih minimal 1 tanggal cuti pada kalender interaktif di bawah.');
       return;
     }
-    if (!reason.trim()) {
-      setErrorMsg('Tuliskan alasan / keperluan cuti Anda.');
-      return;
-    }
+
+    // Alasan sekarang opsional: jika tidak diisi, gunakan keterangan standar SOP KUK
+    const finalReason = reason.trim() || 'Cuti Bulanan Standar (SOP KUK)';
 
     setSubmitting(true);
     const unitId = selectedEmp.unit_id || '00000000-0000-0000-0000-000000000001';
@@ -175,7 +224,7 @@ export const PublicLeaveRequestPage: React.FC = () => {
         employee_id: selectedEmp.id,
         target_month: targetMonthStr,
         dates: selectedDates,
-        reason: reason.trim(),
+        reason: finalReason,
         total_days: selectedDates.length,
         bypass_window: true,
       });
@@ -187,7 +236,7 @@ export const PublicLeaveRequestPage: React.FC = () => {
         bagian: selectedEmp.department?.name || 'Operasional',
         unit: 'TB KUK La Tansa',
         tanggal: selectedDates,
-        alasan: reason.trim(),
+        alasan: finalReason,
       });
 
       setReceipt({
@@ -196,21 +245,22 @@ export const PublicLeaveRequestPage: React.FC = () => {
         targetMonth: `${MONTH_NAMES[viewMonth]} ${viewYear}`,
         totalDays: selectedDates.length,
         dates: selectedDates,
-        reason: reason.trim(),
+        reason: finalReason,
         submittedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       });
 
       showToast(res.message || '✓ Permohonan cuti berhasil disimpan online!');
 
-      // WhatsApp format matching cuti.html
+      // WhatsApp format matching cuti.html (alasan hanya disertakan jika diisi)
+      const reasonPart = reason.trim() ? `• *Alasan/Keperluan:* ${reason.trim()}\n` : '';
       const waText = encodeURIComponent(
         `*PENGAJUAN CUTI KARYAWAN TB. KUK*\n\n` +
         `• *Nama Karyawan:* ${selectedEmp.full_name}\n` +
         `• *Bagian/Divisi:* ${selectedEmp.department?.name || '-'}\n` +
         `• *Bulan Periode:* ${MONTH_NAMES[viewMonth]} ${viewYear}\n` +
         `• *Tanggal Cuti (${selectedDates.length} Hari):* ${selectedDates.join(', ')}\n` +
-        `• *Alasan/Keperluan:* ${reason.trim()}\n\n` +
-        `_Mohon persetujuan dari Kepala Toko / Manajemen TB KUK. Terima kasih._`
+        reasonPart +
+        `\n_Mohon persetujuan dari Kepala Toko / Manajemen TB KUK. Terima kasih._`
       );
       window.open(`https://api.whatsapp.com/send?text=${waText}`, '_blank');
     } catch (err: any) {
@@ -419,6 +469,13 @@ export const PublicLeaveRequestPage: React.FC = () => {
                     </span>
                   </div>
                 )}
+
+                {isAdmin3 && (
+                  <div className="mt-2.5 p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Aturan Khusus Admin 3 (Irvan): Pengajuan cuti HANYA diperbolehkan pada hari Ahad / Minggu.</span>
+                  </div>
+                )}
               </div>
 
               {/* Kalender Interaktif Pemilihan Tanggal Cuti */}
@@ -475,21 +532,38 @@ export const PublicLeaveRequestPage: React.FC = () => {
                     const isSelected = selectedDates.includes(dateStr);
                     const dayOfWeek = new Date(viewYear, viewMonth, day).getDay();
                     const isSunday = dayOfWeek === 0;
+                    const isBooked = bookedDatesByDept.has(dateStr);
+                    const isBlockedByAdmin3 = isAdmin3 && !isSunday;
 
                     return (
                       <button
                         type="button"
                         key={`day-${day}`}
+                        disabled={isBooked || isBlockedByAdmin3}
                         onClick={() => handleDateClick(day)}
-                        className={`h-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center relative ${
+                        title={
+                          isBooked
+                            ? 'Sudah diambil oleh rekan satu bagian'
+                            : isBlockedByAdmin3
+                            ? 'Admin 3 hanya boleh hari Ahad / Minggu'
+                            : `Pilih tanggal ${day}`
+                        }
+                        className={`h-9 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center relative ${
                           isSelected
-                            ? 'bg-[#540000] text-white shadow-xs scale-105 ring-2 ring-[#FFCC00]'
+                            ? 'bg-[#540000] text-[#FFCC00] shadow-xs scale-105 ring-2 ring-[#FFCC00] font-black'
+                            : isBooked
+                            ? 'bg-red-50 text-red-300 cursor-not-allowed border border-red-100'
+                            : isBlockedByAdmin3
+                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
                             : isSunday
-                            ? 'bg-red-50 text-red-700 hover:bg-red-100'
-                            : 'bg-white hover:bg-gray-100 text-gray-800 border border-gray-100'
+                            ? 'bg-red-50 text-red-700 hover:bg-red-100 font-bold border border-red-100'
+                            : 'bg-white hover:bg-yellow-50 text-gray-800 border border-gray-200/80 hover:border-[#FFCC00]'
                         }`}
                       >
-                        {day}
+                        <span>{day}</span>
+                        {isBooked && (
+                          <span className="text-[7px] text-red-400 font-normal scale-90 -mt-0.5">Bentrok</span>
+                        )}
                       </button>
                     );
                   })}
@@ -517,13 +591,14 @@ export const PublicLeaveRequestPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Alasan Cuti */}
+              {/* Alasan Cuti (Opsional) */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1.5">Alasan / Keperluan Cuti *</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Alasan / Catatan Cuti (Opsional)
+                </label>
                 <textarea
-                  required
                   rows={2}
-                  placeholder="Contoh: Keperluan keluarga / acara penting..."
+                  placeholder="Opsional: Cuti bulanan / keperluan keluarga (boleh dikosongkan)"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-white border border-[#E5E5E5] text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414] transition-all"
@@ -533,11 +608,17 @@ export const PublicLeaveRequestPage: React.FC = () => {
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || selectedDates.length === 0}
                   className="w-full py-4 px-6 rounded-2xl bg-[#540000] hover:bg-[#3B0000] text-white font-extrabold text-sm transition-all flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 select-none active:scale-[0.99]"
                 >
                   <Send className="w-4 h-4 text-[#FFCC00]" />
-                  <span>{submitting ? 'Menyimpan ke Cloud...' : '💾 Simpan Permohonan Cuti & Kirim WhatsApp'}</span>
+                  <span>
+                    {submitting
+                      ? 'Menyimpan ke Cloud...'
+                      : selectedDates.length === 0
+                      ? 'Pilih Tanggal di Kalender Terlebih Dahulu'
+                      : `💾 Simpan Permohonan Cuti (${selectedDates.length} Hari) & Kirim WhatsApp`}
+                  </span>
                 </button>
               </div>
             </form>

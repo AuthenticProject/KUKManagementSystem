@@ -6,6 +6,7 @@ import type { LeaveRequest, Employee } from '@/types/models';
 import { CreateLeaveModal } from './CreateLeaveModal';
 import { PrintHeader } from '@/components/common/PrintHeader';
 import { exportToCSV } from '@/utils/exportUtils';
+import { exportToExcel } from '@/utils/excelUtils';
 import { PageHeader } from '@/components/ui';
 import {
   CalendarDays,
@@ -27,7 +28,7 @@ import {
 } from 'lucide-react';
 
 export const LeaveListPage: React.FC = () => {
-  const { activeUnit, activeUnitId } = useUnit();
+  const { activeUnit, activeUnitId, availableUnits } = useUnit();
   const { user, hasPermission } = useAuth();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -60,19 +61,43 @@ export const LeaveListPage: React.FC = () => {
   const [selectedReqForPrint, setSelectedReqForPrint] = useState<LeaveRequest | null>(null);
 
   const loadData = async () => {
-    if (!activeUnitId) return;
     setLoading(true);
     setError(null);
     try {
-      const [res, empRes] = await Promise.all([
-        leaveService.getLeaveRequestsByUnit(activeUnitId),
-        employeeService.getEmployeesByUnit(activeUnitId),
-      ]);
-      setRequests(res.data);
-      setEmployees(empRes.data.filter((e) => e.status === 'ACTIVE'));
-      setIsFixture(res.isFixture || empRes.isFixture);
-      if (!res.success && res.error) {
-        setError(res.error);
+      if (!activeUnitId) {
+        // Mode Dua Toko (Pusat / Semua Toko): Muat data cuti & karyawan dari kedua unit secara paralel
+        const targetUnits =
+          availableUnits.length > 0
+            ? availableUnits
+            : [
+                { id: '00000000-0000-0000-0000-000000000001', name: 'TB KUK La Tansa' },
+                { id: '00000000-0000-0000-0000-000000000002', name: 'KUK Palen' },
+              ];
+
+        const [leaveResList, empResList] = await Promise.all([
+          Promise.all(targetUnits.map((u) => leaveService.getLeaveRequestsByUnit(u.id))),
+          Promise.all(targetUnits.map((u) => employeeService.getEmployeesByUnit(u.id))),
+        ]);
+
+        const combinedRequests = leaveResList.flatMap((r) => r.data || []);
+        const uniqueRequests = Array.from(new Map(combinedRequests.map((r) => [r.id, r])).values());
+        setRequests(uniqueRequests);
+
+        const combinedEmps = empResList.flatMap((r) => r.data || []);
+        const uniqueEmps = Array.from(new Map(combinedEmps.map((e) => [e.id, e])).values());
+        setEmployees(uniqueEmps.filter((e) => e.status === 'ACTIVE'));
+        setIsFixture(leaveResList.some((r) => r.isFixture) || empResList.some((r) => r.isFixture));
+      } else {
+        const [res, empRes] = await Promise.all([
+          leaveService.getLeaveRequestsByUnit(activeUnitId),
+          employeeService.getEmployeesByUnit(activeUnitId),
+        ]);
+        setRequests(res.data || []);
+        setEmployees(empRes.data.filter((e) => e.status === 'ACTIVE'));
+        setIsFixture(res.isFixture || empRes.isFixture);
+        if (!res.success && res.error) {
+          setError(res.error);
+        }
       }
     } catch (err: any) {
       setError(err?.message || 'Gagal memuat data cuti.');
@@ -82,22 +107,41 @@ export const LeaveListPage: React.FC = () => {
   };
 
   const loadRecap = async () => {
-    if (!activeUnitId) return;
     setRecapLoading(true);
-    const res = await leaveService.getLeaveRecapByUnit(activeUnitId, recapMonth);
-    setRecapData(res.data || []);
-    setRecapLoading(false);
+    try {
+      if (!activeUnitId) {
+        const targetUnits =
+          availableUnits.length > 0
+            ? availableUnits
+            : [
+                { id: '00000000-0000-0000-0000-000000000001', name: 'TB KUK La Tansa' },
+                { id: '00000000-0000-0000-0000-000000000002', name: 'KUK Palen' },
+              ];
+        const recapResList = await Promise.all(
+          targetUnits.map((u) => leaveService.getLeaveRecapByUnit(u.id, recapMonth))
+        );
+        const combinedRecap = recapResList.flatMap((r) => r.data || []);
+        setRecapData(combinedRecap);
+      } else {
+        const res = await leaveService.getLeaveRecapByUnit(activeUnitId, recapMonth);
+        setRecapData(res.data || []);
+      }
+    } catch (err: any) {
+      console.error('Failed to load recap:', err);
+    } finally {
+      setRecapLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, [activeUnitId]);
+  }, [activeUnitId, availableUnits]);
 
   useEffect(() => {
     if (activeTab === 'RECAP') {
       loadRecap();
     }
-  }, [activeUnitId, recapMonth, activeTab]);
+  }, [activeUnitId, availableUnits, recapMonth, activeTab]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -195,6 +239,35 @@ export const LeaveListPage: React.FC = () => {
     exportToCSV(`Rekap_Cuti_HR_${activeUnit?.code || 'KUK'}_${recapMonth}`, headers, rows);
   };
 
+  const handleExportRecapExcel = () => {
+    const headers = [
+      'Bulan',
+      'Kode Karyawan',
+      'Nama Karyawan',
+      'Bagian',
+      'Jabatan',
+      'Kuota Bulanan',
+      'Hari Digunakan',
+      'Sisa Kuota',
+      'Status Kuota',
+      'Tanggal Terjadwal',
+    ];
+    const rows = recapData.map((r) => [
+      r.target_month,
+      r.employee_code,
+      r.employee_name,
+      r.department_name,
+      r.position_title,
+      r.quota_monthly,
+      r.days_used,
+      r.days_remaining,
+      r.quota_status,
+      (r.recorded_dates || []).join('; '),
+    ]);
+    exportToExcel(`Rekap_Cuti_HR_${activeUnit?.code || 'KUK'}_${recapMonth}`, 'Rekap Kuota Cuti', headers, rows);
+    showToast(`Berhasil mengekspor rekap kuota cuti (${recapData.length} data) ke Excel.`);
+  };
+
   const handleStatusChange = async (reqId: string, status: 'APPROVED' | 'REJECTED') => {
     if (!activeUnitId) return;
     const res = await leaveService.updateLeaveStatus(activeUnitId, reqId, status);
@@ -246,12 +319,39 @@ export const LeaveListPage: React.FC = () => {
       r.snapshot_position_title,
       r.target_month,
       r.total_days,
-      r.dates?.map((d) => d.leave_date).join('; ') || '-',
-      r.reason,
+      r.dates?.map((d) => (typeof d === 'string' ? d : d.leave_date)).join('; ') || '-',
+      r.reason || '-',
       r.status,
     ]);
     exportToCSV(`Rekap_Cuti_${activeUnit?.code || 'KUK'}_${recapMonth}`, headers, rows);
     showToast(`Berhasil mengekspor ${filtered.length} permohonan cuti.`);
+  };
+
+  const handleExportExcel = () => {
+    const headers = [
+      'Kode Permohonan',
+      'Nama Karyawan',
+      'Departemen',
+      'Jabatan',
+      'Target Bulan',
+      'Jumlah Hari',
+      'Tanggal Cuti',
+      'Alasan',
+      'Status',
+    ];
+    const rows = filtered.map((r) => [
+      r.id,
+      r.snapshot_employee_name,
+      r.snapshot_department_name,
+      r.snapshot_position_title,
+      r.target_month,
+      r.total_days,
+      r.dates?.map((d) => (typeof d === 'string' ? d : d.leave_date)).join(', ') || '-',
+      r.reason || '-',
+      r.status,
+    ]);
+    exportToExcel(`Rekap_Cuti_${activeUnit?.code || 'KUK'}_${recapMonth}`, 'Permohonan Cuti', headers, rows);
+    showToast(`Berhasil mengekspor ${filtered.length} permohonan cuti ke Excel.`);
   };
 
   return (
@@ -273,6 +373,16 @@ export const LeaveListPage: React.FC = () => {
         unitBadge={activeUnit?.name}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportExcel}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
+              title="Ekspor ke Excel (.xlsx)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+              <span className="hidden sm:inline">Ekspor Excel</span>
+            </button>
+
             <button
               onClick={handleExportCSV}
               disabled={filtered.length === 0}
@@ -542,10 +652,18 @@ export const LeaveListPage: React.FC = () => {
                 className="px-3 py-1.5 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon font-semibold text-gray-700 bg-white"
               />
               <button
-                onClick={handleExportRecapCSV}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors"
+                onClick={handleExportRecapExcel}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-2xs"
+                title="Ekspor ke Excel (.xlsx)"
               >
                 <FileSpreadsheet className="w-4 h-4" />
+                <span>Ekspor Excel</span>
+              </button>
+              <button
+                onClick={handleExportRecapCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold transition-colors"
+              >
+                <Download className="w-4 h-4 text-kuk-maroon" />
                 <span>Ekspor CSV</span>
               </button>
             </div>
@@ -834,10 +952,10 @@ export const LeaveListPage: React.FC = () => {
       )}
 
       {/* Create Leave Modal */}
-      {createModalOpen && activeUnitId && (
+      {createModalOpen && (
         <CreateLeaveModal
           isOpen={createModalOpen}
-          unitId={activeUnitId}
+          unitId={activeUnitId || '00000000-0000-0000-0000-000000000001'}
           onClose={() => setCreateModalOpen(false)}
           onSuccess={(msg?: string) => {
             showToast(msg || 'Pengajuan cuti staf berhasil disimpan.');

@@ -80,17 +80,20 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
     return employees.find((e) => e.id === selectedEmpId) || null;
   }, [employees, selectedEmpId]);
 
-  // Check if active employee is Admin 3 (or code ADM3)
+  // Check if active employee is Admin 3 (or code ADM3 / Irvan / K-011)
   const isAdmin3 = useMemo(() => {
     if (!activeEmp) return false;
     const posCode = String(activeEmp.position?.code || '').toUpperCase();
     const posTitle = String(activeEmp.position?.title || '').toLowerCase();
+    const deptName = String(activeEmp.department?.name || '').toLowerCase();
     const empName = String(activeEmp.full_name || '').toLowerCase();
+    const empCode = String(activeEmp.employee_code || '').toUpperCase();
     return (
       posCode.includes('ADM3') ||
       posTitle.includes('admin 3') ||
+      deptName.includes('admin 3') ||
       empName.includes('irvan') ||
-      activeEmp.employee_code === 'K-011'
+      empCode === 'K-011'
     );
   }, [activeEmp]);
 
@@ -203,7 +206,7 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
     // Admin 3 Rule: Sunday only!
     if (isAdmin3 && !isSunday) {
       setErrorMsg(
-        'Aturan Khusus Admin 3 (Irvan): Pengajuan cuti HANYA diperbolehkan pada hari MINGGU.'
+        'Aturan Khusus Admin 3 (Irvan): Pengajuan cuti HANYA diperbolehkan pada hari Ahad / Minggu.'
       );
       return;
     }
@@ -269,17 +272,15 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
       return;
     }
 
-    if (!reason.trim()) {
-      setErrorMsg('Alasan keperluan cuti wajib diisi.');
-      return;
-    }
+    // Alasan sekarang opsional: jika tidak diisi, gunakan keterangan standar SOP KUK
+    const finalReason = reason.trim() || 'Cuti Bulanan Standar (SOP KUK)';
 
     setLoading(true);
     const res = await leaveService.submitLeaveRequest(unitId, {
       employee_id: selectedEmpId,
       target_month: targetMonth,
       total_days: selectedDates.length,
-      reason: reason.trim(),
+      reason: finalReason,
       dates: selectedDates,
       bypass_window: true,
     } as any);
@@ -350,7 +351,7 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
             {isAdmin3 && (
               <div className="mt-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 font-semibold flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>Aturan Khusus Admin 3 (Irvan): Pengajuan cuti HANYA dapat diambil pada hari Minggu.</span>
+                <span>Aturan Khusus Admin 3 (Irvan): Pengajuan cuti HANYA dapat diambil pada hari Ahad / Minggu.</span>
               </div>
             )}
           </div>
@@ -476,7 +477,7 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
                         isBooked
                           ? 'Sudah diambil oleh rekan satu bagian'
                           : isBlockedByAdmin3
-                          ? 'Admin 3 hanya boleh hari Minggu'
+                          ? 'Admin 3 hanya boleh hari Ahad / Minggu'
                           : `Pilih tanggal ${dayNum}`
                       }
                       className={`h-10 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center relative ${
@@ -528,17 +529,16 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
             )}
           </div>
 
-          {/* Reason Input */}
+          {/* Reason Input (Optional) */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
-              Keperluan / Alasan Rencana Cuti *
+              Keperluan / Catatan Cuti (Opsional)
             </label>
             <textarea
               rows={2}
-              required
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Contoh: Keperluan keluarga mendesak di luar kota..."
+              placeholder="Opsional: Cuti bulanan / keperluan keluarga (boleh dikosongkan)"
               className="w-full px-3 py-2 text-xs font-medium border border-gray-200 rounded-xl focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
             />
           </div>
@@ -559,7 +559,13 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
               className="px-5 py-2.5 text-xs font-bold text-white bg-kuk-maroon hover:bg-kuk-maroon-dark rounded-xl disabled:opacity-50 transition-all shadow-md flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4 text-kuk-gold" />
-              <span>{loading ? 'Mengajukan...' : 'Ajukan Permohonan Cuti'}</span>
+              <span>
+                {loading
+                  ? 'Mengajukan...'
+                  : selectedDates.length === 0
+                  ? 'Pilih Tanggal Dulu'
+                  : `Simpan Permohonan Cuti (${selectedDates.length} Hari)`}
+              </span>
             </button>
           </div>
         </form>
