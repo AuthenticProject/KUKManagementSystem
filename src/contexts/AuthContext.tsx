@@ -11,6 +11,7 @@ import {
   setStoredDemoIdentityKey,
   clearStoredDemoIdentity,
 } from '@/services/demoAuth';
+import { userAccountStore, StoredStaffUser } from '@/services/userAccountStore';
 import { setPreviewModeActive } from '@/services/dataService';
 
 interface AuthContextType {
@@ -25,10 +26,11 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  // UAT Demo Access
+  // UAT Demo & Staff Access
   isDemoMode: boolean;
   activeDemoKey: DemoIdentityKey | null;
   loginAsDemo: (key: DemoIdentityKey) => void;
+  loginAsStaff: (staffUser: StoredStaffUser) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -112,6 +114,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   };
 
+  const applyStaffUser = (staffUser: StoredStaffUser) => {
+    const identity = userAccountStore.mapToDemoIdentity(staffUser);
+    setUser(createDemoUserObject(identity));
+    setSession(null);
+    setProfile(identity.profile);
+    setSystemRoles(identity.systemRoles);
+    setUnitRoles(identity.unitRoles);
+    setIsDemoMode(true);
+    setActiveDemoKey(identity.key);
+    setStoredDemoIdentityKey(identity.key);
+    setPreviewModeActive(true);
+    setLoading(false);
+  };
+
   const loginAsDemo = (key: DemoIdentityKey) => {
     if (!isUatDemoAvailable()) {
       console.warn('Security Block: UAT Demo Access is not enabled in this environment.');
@@ -120,7 +136,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     applyDemoIdentity(key);
   };
 
+  const loginAsStaff = (staffUser: StoredStaffUser) => {
+    applyStaffUser(staffUser);
+  };
+
   useEffect(() => {
+    // 1. Cek session aktif dari portal staf (kuk_user)
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        const rawStaff = window.sessionStorage.getItem('kuk_user');
+        if (rawStaff) {
+          const parsed = JSON.parse(rawStaff);
+          if (parsed && (parsed.username || parsed.id)) {
+            const matched =
+              userAccountStore.getUserByUsername(parsed.username) ||
+              userAccountStore.getUserById(parsed.id);
+            if (matched) {
+              applyStaffUser(matched);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[AuthContext] Error parsing staff session:', e);
+      }
+    }
+
+    // 2. Cek session demo UAT jika ada
     if (isUatDemoAvailable()) {
       const storedDemoKey = getStoredDemoIdentityKey();
       if (storedDemoKey) {
@@ -187,6 +229,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem('kuk_user');
+      } catch (e) {}
+    }
     if (isDemoMode) {
       clearStoredDemoIdentity();
       setPreviewModeActive(false);
@@ -230,6 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isDemoMode,
         activeDemoKey,
         loginAsDemo,
+        loginAsStaff,
       }}
     >
       {children}

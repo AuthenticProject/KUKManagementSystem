@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { systemService, isPreviewModeActive, setPreviewModeActive } from '@/services/dataService';
+import { userAccountStore, StoredStaffUser } from '@/services/userAccountStore';
 import type { UserAccount, BusinessUnit, UserRole } from '@/types/models';
 import {
   Settings,
@@ -12,23 +13,58 @@ import {
   Check,
   X,
   Database,
-  Sliders,
   AlertCircle,
-  ToggleLeft,
-  ToggleRight,
+  Plus,
+  Edit3,
+  Trash2,
+  Eye,
+  EyeOff,
+  RotateCcw,
+  Search,
+  KeyRound,
+  UserCheck,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
 
 export const SettingsPage: React.FC = () => {
   const { isSuperAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'USERS' | 'RBAC' | 'UNITS' | 'PREVIEW'>('USERS');
-  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StoredStaffUser[]>([]);
   const [units, setUnits] = useState<BusinessUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<string | null>(null);
   const [previewActive, setPreviewActive] = useState<boolean>(isPreviewModeActive());
   const [error, setError] = useState<string | null>(null);
-  const [isFixture, setIsFixture] = useState<boolean>(false);
+
+  // Search & Filter
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUnitFilter, setSelectedUnitFilter] = useState<'ALL' | 'bangunan' | 'palen'>('ALL');
+  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+
+  // Account Modal (Create / Edit)
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'CREATE' | 'EDIT'>('CREATE');
+  const [formId, setFormId] = useState('');
+  const [formNamaLengkap, setFormNamaLengkap] = useState('');
+  const [formJabatan, setFormJabatan] = useState('');
+  const [formUsername, setFormUsername] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [formShowPassword, setFormShowPassword] = useState(false);
+  const [formToko, setFormToko] = useState<'bangunan' | 'palen'>('bangunan');
+  const [formRole, setFormRole] = useState<UserRole>('SUPERVISOR');
+  const [formIsActive, setFormIsActive] = useState(true);
+  const [formEmail, setFormEmail] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+
+  // Delete Confirm Modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<StoredStaffUser | null>(null);
+
+  // Legacy Edit Role modal (preserved)
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
+  const [targetRole, setTargetRole] = useState<UserRole>('KASIR');
+  const [savingRole, setSavingRole] = useState(false);
 
   const isProduction =
     typeof import.meta !== 'undefined' &&
@@ -41,47 +77,24 @@ export const SettingsPage: React.FC = () => {
   const isPreviewBlocked = isProduction && !allowInProd;
   const canTogglePreview = isSuperAdmin && !isPreviewBlocked;
 
-  // Edit Role modal
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
-  const [targetRole, setTargetRole] = useState<UserRole>('KASIR');
-  const [savingRole, setSavingRole] = useState(false);
-
   const loadData = async () => {
     setLoading(true);
     setError(null);
+
+    // 1. Load staff accounts from UserAccountStore
+    const sUsers = userAccountStore.getUsers();
+    setStaffUsers(sUsers);
+
+    // 2. Load system services
     const [uRes, bUnits] = await Promise.all([
       systemService.getUsers(),
       systemService.getUnits(),
     ]);
 
-    setIsFixture(uRes.isFixture);
     if (!uRes.success && uRes.error) {
       setError(uRes.error);
     }
 
-    const mappedUsers = (uRes.data || []).map((u) => {
-      const assignedName =
-        u.assigned_units && u.assigned_units.length > 0
-          ? bUnits.find((b) => b.id === u.assigned_units[0])?.name || 'Unit Terdaftar'
-          : 'Semua Unit';
-
-      const defaultRole: UserRole =
-        u.system_role === 'super_admin'
-          ? 'PIMPINAN'
-          : u.system_role === 'central_admin'
-          ? 'MANAGER'
-          : 'SUPERVISOR';
-
-      return {
-        ...u,
-        role: u.role || defaultRole,
-        unit_name: u.unit_name || assignedName,
-        is_active: u.status === 'ACTIVE',
-      };
-    });
-
-    setUsers(mappedUsers);
     setUnits(bUnits as unknown as BusinessUnit[]);
     setLoading(false);
   };
@@ -95,6 +108,112 @@ export const SettingsPage: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
+  // Toggle visible password in table
+  const toggleRowPassword = (id: string) => {
+    setShowPasswordMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Open Create Account Modal
+  const handleOpenCreateAccount = () => {
+    setModalMode('CREATE');
+    setFormId('');
+    setFormNamaLengkap('');
+    setFormJabatan('Staf Operasional');
+    setFormUsername('');
+    setFormPassword('12345');
+    setFormShowPassword(false);
+    setFormToko('bangunan');
+    setFormRole('SUPERVISOR');
+    setFormIsActive(true);
+    setFormEmail('');
+    setFormPhone('');
+    setAccountModalOpen(true);
+  };
+
+  // Open Edit Account Modal
+  const handleOpenEditAccount = (user: StoredStaffUser) => {
+    setModalMode('EDIT');
+    setFormId(user.id);
+    setFormNamaLengkap(user.namaLengkap);
+    setFormJabatan(user.jabatan);
+    setFormUsername(user.username);
+    setFormPassword(user.password);
+    setFormShowPassword(false);
+    setFormToko(user.toko === 'palen' ? 'palen' : 'bangunan');
+    setFormRole(user.role);
+    setFormIsActive(user.is_active);
+    setFormEmail(user.email || '');
+    setFormPhone(user.phone || '');
+    setAccountModalOpen(true);
+  };
+
+  // Save Account (Create / Edit)
+  const handleSaveAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formNamaLengkap.trim()) {
+      showToast('Nama lengkap staf wajib diisi.');
+      return;
+    }
+    if (!formUsername.trim()) {
+      showToast('Username wajib diisi.');
+      return;
+    }
+    if (!formPassword.trim()) {
+      showToast('Kata sandi wajib diisi.');
+      return;
+    }
+
+    const payload: Partial<StoredStaffUser> & { username: string; namaLengkap: string } = {
+      id: formId || undefined,
+      username: formUsername.trim().toLowerCase(),
+      namaLengkap: formNamaLengkap.trim(),
+      jabatan: formJabatan.trim() || 'Staf Operasional',
+      password: formPassword.trim(),
+      toko: formToko,
+      role: formRole,
+      is_active: formIsActive,
+      email: formEmail.trim() || `${formUsername.trim().toLowerCase()}@kuk.co.id`,
+      phone: formPhone.trim() || '081234567890',
+    };
+
+    const res = userAccountStore.saveUser(payload);
+    showToast(res.message);
+    if (res.success) {
+      setAccountModalOpen(false);
+      loadData();
+    }
+  };
+
+  // Toggle user active status directly
+  const handleToggleStatus = (user: StoredStaffUser) => {
+    const updated = { ...user, is_active: !user.is_active };
+    userAccountStore.saveUser(updated);
+    showToast(`Status "${user.namaLengkap}" diubah menjadi ${updated.is_active ? 'AKTIF' : 'NON-AKTIF'}.`);
+    loadData();
+  };
+
+  // Delete User
+  const handleConfirmDelete = () => {
+    if (!userToDelete) return;
+    const res = userAccountStore.deleteUser(userToDelete.id);
+    showToast(res.message);
+    setDeleteModalOpen(false);
+    setUserToDelete(null);
+    if (res.success) {
+      loadData();
+    }
+  };
+
+  // Reset to default accounts
+  const handleResetDefaults = () => {
+    if (window.confirm('Kembalikan semua akun ke data bawaan resmi KUK Bangunan & KUK Palen?')) {
+      const res = userAccountStore.resetToDefaults();
+      showToast(res.message);
+      loadData();
+    }
+  };
+
+  // Legacy Role Modal handler
   const handleOpenEditRole = (u: UserAccount) => {
     setSelectedUser(u);
     setTargetRole((u.role as UserRole) || 'KASIR');
@@ -110,6 +229,11 @@ export const SettingsPage: React.FC = () => {
       targetRole,
       selectedUser.assigned_units || []
     );
+    // Also sync to UserAccountStore if matching user exists
+    const matchingStaff = userAccountStore.getUserById(selectedUser.id);
+    if (matchingStaff) {
+      userAccountStore.saveUser({ ...matchingStaff, role: targetRole });
+    }
     setSavingRole(false);
     showToast(res.message);
     if (res.success) {
@@ -117,6 +241,17 @@ export const SettingsPage: React.FC = () => {
       loadData();
     }
   };
+
+  // Filtered staff users
+  const filteredStaffUsers = staffUsers.filter((u) => {
+    const matchesSearch =
+      u.namaLengkap.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.jabatan.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesUnit =
+      selectedUnitFilter === 'ALL' || u.toko === selectedUnitFilter;
+    return matchesSearch && matchesUnit;
+  });
 
   // Matrix Definition
   const permissionsList = [
@@ -171,13 +306,13 @@ export const SettingsPage: React.FC = () => {
       {/* Header Halaman */}
       <PageHeader
         title="Pengaturan Sistem & Hak Akses"
-        subtitle="Manajemen pengguna sistem, matriks role-based access control (RBAC), dan parameter multi-unit."
+        subtitle="Kelola akun pengguna, nama, jabatan, kata sandi, matriks RBAC, dan unit usaha secara mandiri."
         icon={<Settings className="w-6 h-6 text-kuk-maroon" />}
         breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Pengaturan Sistem' }]}
       />
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-gray-200 pb-2">
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
         <button
           onClick={() => setActiveTab('USERS')}
           className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-colors ${
@@ -187,7 +322,7 @@ export const SettingsPage: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Pengguna & Akun ({users.length})</span>
+          <span>Pengguna & Akun Staf ({staffUsers.length})</span>
         </button>
 
         <button
@@ -224,9 +359,7 @@ export const SettingsPage: React.FC = () => {
         >
           <Database className="w-4 h-4" />
           <span>Sumber Data & Pratinjau</span>
-          {previewActive && (
-            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-          )}
+          {previewActive && <span className="w-2 h-2 rounded-full bg-amber-400"></span>}
         </button>
       </div>
 
@@ -248,22 +381,91 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Fixture Alert Banner */}
-      {isFixture && !error && !loading && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>
-            <strong>Zero-State Preview Mode:</strong> Mode simulasi aktif. Pengguna sistem di bawah ini adalah sampel preview lokal terisolasi.
-          </span>
-        </div>
-      )}
-
-      {/* Main Tab Content */}
+      {/* Main Tab Content: USERS */}
       {activeTab === 'USERS' && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-bold text-sm text-gray-800">Daftar Akun Pengguna Sistem</h2>
-            <span className="text-xs text-gray-400">Total {users.length} akun</span>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+          {/* Action & Filter Toolbar */}
+          <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/50">
+            <div>
+              <h2 className="font-bold text-sm text-gray-800">Daftar Akun Staf Manajemen KUK</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Semua nama, jabatan, username, dan kata sandi bersifat editable dan tersinkronisasi langsung ke login portal.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition-all shadow-2xs"
+                title="Kembalikan ke akun staf bawaan resmi KUK"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-gray-500" />
+                <span>Reset Default</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenCreateAccount}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-kuk-maroon hover:bg-[#3B0000] rounded-xl transition-all shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5 text-kuk-gold" />
+                <span>Tambah Akun Baru</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search & Unit Filter Controls */}
+          <div className="p-3 bg-white border-b border-gray-100 flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Cari nama, jabatan, username..."
+                className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Filter Toko:</span>
+              <div className="inline-flex rounded-xl border border-gray-200 p-0.5 bg-gray-50 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnitFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                    selectedUnitFilter === 'ALL'
+                      ? 'bg-white text-kuk-maroon shadow-2xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Semua ({staffUsers.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnitFilter('bangunan')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                    selectedUnitFilter === 'bangunan'
+                      ? 'bg-white text-kuk-maroon shadow-2xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  🏢 La Tansa ({staffUsers.filter((u) => u.toko === 'bangunan').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnitFilter('palen')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                    selectedUnitFilter === 'palen'
+                      ? 'bg-white text-kuk-maroon shadow-2xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  🏬 Palen ({staffUsers.filter((u) => u.toko === 'palen').length})
+                </button>
+              </div>
+            </div>
           </div>
 
           {loading ? (
@@ -271,59 +473,174 @@ export const SettingsPage: React.FC = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-gray-50 text-gray-600 font-semibold uppercase">
+                <thead className="bg-gray-50 text-gray-600 font-semibold uppercase tracking-wider text-[10px]">
                   <tr>
-                    <th className="px-5 py-3">Nama Lengkap & Email</th>
-                    <th className="px-5 py-3">Peran (Role)</th>
-                    <th className="px-5 py-3">Penugasan Unit</th>
-                    <th className="px-5 py-3">Status</th>
-                    <th className="px-5 py-3 text-right">Aksi</th>
+                    <th className="px-4 py-3">Nama Lengkap & Akun</th>
+                    <th className="px-4 py-3">Jabatan Resmi</th>
+                    <th className="px-4 py-3">Kata Sandi (PW)</th>
+                    <th className="px-4 py-3">Unit / Toko</th>
+                    <th className="px-4 py-3">Peran (Role)</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50/50">
-                      <td className="px-5 py-3.5">
-                        <div className="font-bold text-gray-900">{u.full_name}</div>
-                        <div className="text-gray-400 font-mono text-[11px]">{u.email}</div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className="px-2.5 py-0.5 rounded-full font-bold text-[11px] bg-kuk-maroon-50 text-kuk-maroon border border-kuk-maroon/20">
-                          {u.role}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-700 font-medium">
-                        {u.unit_name}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            u.is_active
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
-                          }`}
-                        >
-                          {u.is_active ? 'AKTIF' : 'NON-AKTIF'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          onClick={() => handleOpenEditRole(u)}
-                          className="px-2.5 py-1 text-xs text-kuk-maroon hover:bg-kuk-maroon-50 border border-kuk-maroon/20 rounded-lg font-medium inline-flex items-center gap-1 transition-colors"
-                        >
-                          <Shield className="w-3 h-3" />
-                          <span>Ubah Peran</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredStaffUsers.map((u) => {
+                    const isPalen = u.toko === 'palen';
+                    const isVisiblePass = showPasswordMap[u.id];
+
+                    return (
+                      <tr key={u.id} className="hover:bg-gray-50/60 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#540000] to-[#800000] text-[#FFCC00] font-black text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                              {u.namaLengkap ? u.namaLengkap[0].toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                              <div className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
+                                <span>{u.namaLengkap}</span>
+                                {u.username.toLowerCase() === 'fariz' && (
+                                  <span className="text-[9px] bg-kuk-gold/20 text-[#996414] px-1.5 py-0.2 rounded font-bold">
+                                    Owner
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-gray-400 font-mono text-[11px]">
+                                @{u.username} · {u.email || `${u.username}@kuk.co.id`}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Jabatan (Editable) */}
+                        <td className="px-4 py-3">
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-200 inline-block">
+                            {u.jabatan || 'Staf Operasional'}
+                          </span>
+                        </td>
+
+                        {/* Kata Sandi (Editable & Peekable) */}
+                        <td className="px-4 py-3">
+                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-50 border border-gray-200">
+                            <KeyRound className="w-3 h-3 text-gray-400" />
+                            <span className="font-mono text-xs font-bold text-gray-700 min-w-12">
+                              {isVisiblePass ? u.password : '••••••••'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleRowPassword(u.id)}
+                              className="text-gray-400 hover:text-gray-700 p-0.5 rounded transition-colors"
+                              title={isVisiblePass ? 'Sembunyikan password' : 'Lihat password'}
+                            >
+                              {isVisiblePass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Toko / Unit */}
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                              isPalen
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-rose-50 text-rose-800 border-rose-200'
+                            }`}
+                          >
+                            {isPalen ? '🏬 KUK PALEN' : '🏢 TB KUK LA TANSA'}
+                          </span>
+                        </td>
+
+                        {/* Peran Sistem */}
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-kuk-maroon-50 text-kuk-maroon border border-kuk-maroon/20">
+                            {u.role}
+                          </span>
+                        </td>
+
+                        {/* Status (Clickable to Toggle) */}
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(u)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                              u.is_active
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                            }`}
+                            title="Klik untuk mengubah status aktif"
+                          >
+                            {u.is_active ? 'AKTIF' : 'NON-AKTIF'}
+                          </button>
+                        </td>
+
+                        {/* Aksi: Edit & Hapus */}
+                        <td className="px-4 py-3 text-right">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenEditRole({
+                                  id: u.id,
+                                  email: u.email || `${u.username}@kuk.co.id`,
+                                  full_name: u.namaLengkap,
+                                  system_role: u.role === 'PIMPINAN' ? 'super_admin' : 'staff',
+                                  status: u.is_active ? 'ACTIVE' : 'INACTIVE',
+                                  is_active: u.is_active,
+                                  assigned_units: [],
+                                  created_at: '',
+                                  role: u.role,
+                                  unit_name: u.toko === 'palen' ? 'KUK Palen' : 'TB KUK La Tansa',
+                                })
+                              }
+                              className="px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 border border-gray-200 rounded-lg font-medium inline-flex items-center gap-1 transition-colors"
+                              title="Ubah peran RBAC pengguna"
+                            >
+                              <Shield className="w-3 h-3 text-kuk-maroon" />
+                              <span>Ubah Peran</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditAccount(u)}
+                              className="px-2 py-1 text-xs text-kuk-maroon hover:bg-kuk-maroon-50 border border-kuk-maroon/20 rounded-lg font-medium inline-flex items-center gap-1 transition-colors"
+                              title="Edit nama, jabatan, password, role"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+
+                            {u.username.toLowerCase() !== 'fariz' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUserToDelete(u);
+                                  setDeleteModalOpen(true);
+                                }}
+                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Hapus akun staf"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+
+              {filteredStaffUsers.length === 0 && (
+                <div className="p-8 text-center text-gray-400 text-xs">
+                  Tidak ada akun staf yang cocok dengan kriteria pencarian & filter.
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
+      {/* Tab: RBAC Matrix */}
       {activeTab === 'RBAC' && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
           <div className="p-4 border-b border-gray-100">
@@ -378,6 +695,7 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Tab: Business Units */}
       {activeTab === 'UNITS' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {units.map((u) => (
@@ -405,7 +723,7 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab: Data Source & Environment Configuration */}
+      {/* Tab: Preview & Data Source */}
       {activeTab === 'PREVIEW' && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-6 space-y-6">
           <div className="flex items-start justify-between border-b border-gray-100 pb-5">
@@ -430,7 +748,6 @@ export const SettingsPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Card 1: Status & Toggle */}
             <div className="p-5 rounded-xl border border-gray-200 bg-gray-50/50 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -448,104 +765,226 @@ export const SettingsPage: React.FC = () => {
                       return;
                     }
                     setPreviewActive(next);
-                    showToast(
-                      next
-                        ? 'Mode Preview diaktifkan. Data simulasi lokal akan ditampilkan.'
-                        : 'Mode Preview dinonaktifkan. Menggunakan koneksi riil ke Supabase.'
-                    );
-                    loadData();
+                    showToast(next ? 'Mode Preview diaktifkan.' : 'Mode Preview dinonaktifkan.');
                   }}
-                  title={
-                    isPreviewBlocked
-                      ? 'Dinonaktifkan permanen di Production demi integritas data.'
-                      : !isSuperAdmin
-                      ? 'Hanya Super Administrator yang berwenang mengubah sumber data.'
-                      : 'Klik untuk mengubah mode pratinjau data'
-                  }
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    !canTogglePreview
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                      : previewActive
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                      : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    previewActive
+                      ? 'bg-kuk-maroon text-white hover:bg-kuk-maroon-700'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
-                  {previewActive ? (
-                    <>
-                      <ToggleRight className="w-4 h-4" />
-                      <span>Mode Pratinjau Aktif</span>
-                    </>
-                  ) : (
-                    <>
-                      <ToggleLeft className="w-4 h-4 text-gray-500" />
-                      <span>Mode Pratinjau Nonaktif</span>
-                    </>
-                  )}
+                  {previewActive ? 'Aktif' : 'Non-Aktif'}
                 </button>
               </div>
-
-              {/* Security Advisory Badges */}
-              {isPreviewBlocked ? (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-2xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>
-                    <strong>Keamanan Production Aktif:</strong> Mode pratinjau dinonaktifkan secara permanen pada lingkungan Production untuk mencegah pencemaran atau pemalsuan data operasional.
-                  </span>
-                </div>
-              ) : !isSuperAdmin ? (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-2xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>
-                    <strong>Akses Terbatas:</strong> Hanya pengguna dengan peran Super Administrator yang memiliki kewenangan mengubah sumber data pratinjau.
-                  </span>
-                </div>
-              ) : null}
-
-              <div className="text-xs text-gray-600 space-y-1.5 pt-2 border-t border-gray-200/60">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Sumber Data Aktif:</span>
-                  <span className="font-semibold text-gray-900 font-mono">
-                    {previewActive ? 'MOCK FIXTURES (Local)' : 'LIVE POSTGRESQL (Supabase)'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Perilaku Database Kosong:</span>
-                  <span className="font-semibold text-gray-900">
-                    {previewActive ? 'Menampilkan data sampel preview' : 'Menampilkan empty state (0 baris)'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Perilaku Error Jaringan/RLS:</span>
-                  <span className="font-semibold text-gray-900">
-                    {previewActive ? 'Fallback ke sampel preview' : 'Tampilkan pesan error transparan'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 2: Environment Information */}
-            <div className="p-5 rounded-xl border border-gray-200 bg-gray-50/50 space-y-3">
-              <h3 className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
-                <Sliders className="w-4 h-4 text-kuk-maroon" />
-                <span>Prinsip Keamanan & Integritas Data (Phase 3.2)</span>
-              </h3>
-              <ul className="text-xs text-gray-600 space-y-2 list-disc list-inside">
-                <li>
-                  <strong className="text-gray-800">Tanpa Masking Otomatis:</strong> Error koneksi atau penolakan RLS tidak lagi disamarkan sebagai preview lokal saat mode preview nonaktif.
-                </li>
-                <li>
-                  <strong className="text-gray-800">Data Response Seragam:</strong> Semua service mengembalikan kontrak standar <code className="text-2xs bg-gray-100 px-1 py-0.5 rounded font-mono">DataResponse&lt;T&gt;</code> dengan indikator <code className="text-2xs bg-gray-100 px-1 py-0.5 rounded font-mono">source: &apos;LIVE&apos; | &apos;MOCK&apos;</code>.
-                </li>
-                <li>
-                  <strong className="text-gray-800">Isolasi Mutasi:</strong> Pengajuan transaksi kiosk memvalidasi error secara ketat dan tidak mengembalikan referensi fiktif jika server menolak.
-                </li>
-              </ul>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Ubah Peran */}
+      {/* ============================================================== */}
+      {/* MODAL EDIT / CREATE AKUN STAF (FULL EDITABILITY) */}
+      {/* ============================================================== */}
+      {accountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-[#540000] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-[#FFCC00]" />
+                <h2 className="font-bold text-sm">
+                  {modalMode === 'CREATE' ? 'Tambah Akun Staf Baru' : 'Edit Akun Staf Manajemen'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAccountModalOpen(false)}
+                className="text-white/80 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAccount} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
+              {/* Nama Lengkap */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Nama Lengkap Staf <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formNamaLengkap}
+                  onChange={(e) => setFormNamaLengkap(e.target.value)}
+                  placeholder="Contoh: Fariz Ridwani, S.I.Kom"
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              {/* Jabatan Resmi */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Jabatan Resmi <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formJabatan}
+                  onChange={(e) => setFormJabatan(e.target.value)}
+                  placeholder="Contoh: Koordinator, Kepala Toko, HRD, Bendahara 1, Kasir"
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Username */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Username Login <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formUsername}
+                    onChange={(e) => setFormUsername(e.target.value)}
+                    placeholder="Contoh: fariz, andika"
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl font-mono focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  />
+                </div>
+
+                {/* Kata Sandi (Password) */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Kata Sandi (Password) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={formShowPassword ? 'text' : 'password'}
+                      required
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      placeholder="Masukkan kata sandi"
+                      className="w-full pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-xl font-mono focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormShowPassword(!formShowPassword)}
+                      className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600"
+                    >
+                      {formShowPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Toko / Unit Kerja */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Toko / Unit Kerja</label>
+                  <select
+                    value={formToko}
+                    onChange={(e) => setFormToko(e.target.value as 'bangunan' | 'palen')}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  >
+                    <option value="bangunan">🏢 TB KUK La Tansa (Bangunan)</option>
+                    <option value="palen">🏬 KUK Palen</option>
+                  </select>
+                </div>
+
+                {/* Peran Sistem (Role RBAC) */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Peran Akses (Role RBAC)</label>
+                  <select
+                    value={formRole}
+                    onChange={(e) => setFormRole(e.target.value as UserRole)}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  >
+                    <option value="PIMPINAN">PIMPINAN (Direksi / Koordinator)</option>
+                    <option value="MANAGER">MANAGER (Kepala Toko / HRD)</option>
+                    <option value="SUPERVISOR">SUPERVISOR (Pengawas / Inventaris)</option>
+                    <option value="KASIR">KASIR (Kasir Toko)</option>
+                    <option value="CHECKER">CHECKER (Pemeriksa Gudang)</option>
+                    <option value="CUTTER">CUTTER (Tukang Potong Kaca)</option>
+                    <option value="DRIVER">DRIVER (Sopir Armada)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Status Aktif */}
+              <div className="pt-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formIsActive}
+                    onChange={(e) => setFormIsActive(e.target.checked)}
+                    className="rounded text-[#540000] focus:ring-[#FFCC00] w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-gray-800">
+                    Akun Aktif (Dapat Login ke Sistem)
+                  </span>
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setAccountModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-[#540000] hover:bg-[#3B0000] rounded-xl shadow-xs transition-all"
+                >
+                  {modalMode === 'CREATE' ? 'Simpan Akun Baru' : 'Perbarui Akun Staf'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL KONFIRMASI HAPUS AKUN */}
+      {/* ============================================================== */}
+      {deleteModalOpen && userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-5 h-5" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-sm font-bold text-gray-900">Konfirmasi Hapus Akun</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Apakah Anda yakin ingin menghapus akun staf <strong>{userToDelete.namaLengkap}</strong> (@{userToDelete.username})? Tindakan ini dapat dipulihkan melalui menu Reset Default.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  setUserToDelete(null);
+                }}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-xs"
+              >
+                Hapus Akun
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Legacy Modal Ubah Peran (Preserved for tests) */}
       {roleModalOpen && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">

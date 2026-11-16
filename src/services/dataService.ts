@@ -2815,45 +2815,27 @@ function getPreviewAuditLogs(unitId: string): AuditLog[] {
   ];
 }
 
+import { userAccountStore } from './userAccountStore';
+
 function getPreviewUsers(): UserAccount[] {
-  return [
-    {
-      id: 'usr-001',
-      email: 'superadmin@kuk.co.id',
-      full_name: 'Direksi Eksekutif KUK',
-      system_role: 'super_admin',
-      status: 'ACTIVE',
-      assigned_units: ['00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'],
-      created_at: '2023-01-01T00:00:00Z',
-    },
-    {
-      id: 'usr-002',
-      email: 'admin.pusat@kuk.co.id',
-      full_name: 'Kepala Operasional Pusat',
-      system_role: 'central_admin',
-      status: 'ACTIVE',
-      assigned_units: ['00000000-0000-0000-0000-000000000000'],
-      created_at: '2023-01-05T00:00:00Z',
-    },
-    {
-      id: 'usr-003',
-      email: 'admin.latansa@kuk.co.id',
-      full_name: 'Kepala Toko La Tansa',
-      system_role: 'unit_admin',
-      status: 'ACTIVE',
-      assigned_units: ['00000000-0000-0000-0000-000000000001'],
-      created_at: '2023-01-10T00:00:00Z',
-    },
-    {
-      id: 'usr-004',
-      email: 'admin.palen@kuk.co.id',
-      full_name: 'Kepala Toko KUK Palen',
-      system_role: 'unit_admin',
-      status: 'ACTIVE',
-      assigned_units: ['00000000-0000-0000-0000-000000000002'],
-      created_at: '2023-02-01T00:00:00Z',
-    },
-  ];
+  const staff = userAccountStore.getUsers();
+  return staff.map((s) => ({
+    id: s.id,
+    email: s.email || `${s.username}@kuk.co.id`,
+    full_name: s.namaLengkap,
+    system_role: s.role === 'PIMPINAN' ? 'super_admin' : s.role === 'MANAGER' ? 'unit_admin' : 'staff',
+    status: s.is_active ? 'ACTIVE' : 'INACTIVE',
+    is_active: s.is_active,
+    assigned_units:
+      s.toko === 'palen'
+        ? ['00000000-0000-0000-0000-000000000002']
+        : s.role === 'PIMPINAN'
+        ? ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002']
+        : ['00000000-0000-0000-0000-000000000001'],
+    created_at: s.created_at || '2023-01-01T00:00:00Z',
+    role: s.role,
+    unit_name: s.toko === 'palen' ? 'KUK Palen' : s.role === 'PIMPINAN' ? 'Semua Unit' : 'TB KUK La Tansa',
+  }));
 }
 
 function getPreviewVehicleInspections(unitId: string): VehicleInspection[] {
