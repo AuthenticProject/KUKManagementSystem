@@ -3,6 +3,8 @@ import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { payrollService } from '@/services/dataService';
 import type { PayrollPeriod, PayrollRecord } from '@/types/models';
+import { exportToCSV } from '@/utils/exportUtils';
+import { PageHeader } from '@/components/ui';
 import {
   Banknote,
   Lock,
@@ -133,6 +135,36 @@ export const PayrollDashboardPage: React.FC = () => {
     window.print();
   };
 
+  const handleExportPayrollCSV = () => {
+    if (!selectedPeriod || records.length === 0) return;
+    const headers = [
+      'No. Slip',
+      'ID Karyawan',
+      'Nama Karyawan',
+      'Bagian',
+      'Jabatan',
+      'Total Pendapatan (Rp)',
+      'Total Potongan (Rp)',
+      'Gaji Bersih / THP (Rp)',
+      'Status Pembayaran',
+      'Periode',
+    ];
+    const rows = records.map((r) => [
+      r.slip_number,
+      r.employee_id,
+      r.snapshot_employee_name,
+      r.snapshot_department_name,
+      r.snapshot_position_title,
+      r.total_earnings,
+      r.total_deductions,
+      r.net_salary,
+      r.payment_status,
+      selectedPeriod.period_name,
+    ]);
+    exportToCSV(`Slip_Gaji_${selectedPeriod.period_name.replace(/\s+/g, '_')}_${activeUnit?.code || 'KUK'}`, headers, rows);
+    showToast(`Berhasil mengekspor ${records.length} slip gaji periode ini ke CSV.`);
+  };
+
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
   };
@@ -154,53 +186,48 @@ export const PayrollDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <Banknote className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Penggajian & Slip Gaji</h1>
+      {/* Header Halaman */}
+      <PageHeader
+        title="Penggajian & Slip Gaji"
+        subtitle={`Kalkulasi atomic & penerbitan slip gaji unit ${activeUnit?.name || 'Unit Aktif'}`}
+        icon={<Banknote className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Penggajian & Slip Gaji' }]}
+        unitBadge={activeUnit?.name}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {hasPermission('payroll.manage', activeUnitId) && (
+              <button
+                onClick={() => setCreatePeriodModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
+              >
+                <Plus className="w-4 h-4 text-kuk-maroon" />
+                <span>Buat Periode Baru</span>
+              </button>
+            )}
+
+            {hasPermission('payroll.manage', activeUnitId) && selectedPeriod && selectedPeriod.status !== 'FINALIZED' && (
+              <>
+                <button
+                  onClick={handleRecalculateDraft}
+                  disabled={recalculating}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-kuk-maroon ${recalculating ? 'animate-spin' : ''}`} />
+                  <span>{recalculating ? 'Menghitung...' : 'Hitung Ulang Draft'}</span>
+                </button>
+
+                <button
+                  onClick={() => setFinalizeModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-kuk-maroon text-white rounded-xl text-xs sm:text-sm font-semibold hover:bg-kuk-maroon-dark transition-colors shadow-xs"
+                >
+                  <Play className="w-3.5 h-3.5 fill-kuk-gold text-kuk-gold" />
+                  <span>Finalisasi Payroll ({selectedPeriod.period_name})</span>
+                </button>
+              </>
+            )}
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Kalkulasi atomic & penerbitan slip gaji unit <span className="font-semibold text-kuk-maroon">{activeUnit?.name || 'Unit Aktif'}</span>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {hasPermission('payroll.manage', activeUnitId) && (
-            <button
-              onClick={() => setCreatePeriodModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-xl text-xs font-semibold transition-colors"
-            >
-              <Plus className="w-4 h-4 text-kuk-maroon" />
-              <span>Buat Periode Baru</span>
-            </button>
-          )}
-
-          {hasPermission('payroll.manage', activeUnitId) && selectedPeriod && selectedPeriod.status !== 'FINALIZED' && (
-            <>
-              <button
-                onClick={handleRecalculateDraft}
-                disabled={recalculating}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? 'animate-spin' : ''}`} />
-                <span>{recalculating ? 'Menghitung...' : 'Hitung Ulang Draft'}</span>
-              </button>
-
-              <button
-                onClick={() => setFinalizeModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-kuk-maroon text-white rounded-xl text-xs font-semibold hover:bg-kuk-maroon-700 transition-colors shadow-xs"
-              >
-                <Play className="w-3.5 h-3.5 fill-white" />
-                <span>Finalisasi Payroll ({selectedPeriod.period_name})</span>
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {/* Error Alert Banner */}
       {error && !loading && (
@@ -301,6 +328,17 @@ export const PayrollDashboardPage: React.FC = () => {
                 </p>
               )}
             </div>
+
+            {selectedPeriod && records.length > 0 && (
+              <button
+                onClick={handleExportPayrollCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold transition-colors shadow-2xs"
+                title="Ekspor rekap payroll periode ini ke CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Ekspor CSV</span>
+              </button>
+            )}
           </div>
 
           {loading ? (

@@ -14,7 +14,16 @@
     "test:phase1:all": "node scripts/test_phase1_all.cjs",
     "test:phase2": "node scripts/test_phase2_logic.cjs",
     "test:phase3": "node scripts/test_phase3_logic.cjs",
-    "test:demo": "node scripts/test_demo_auth.cjs"
+    "test:demo": "node scripts/test_demo_auth.cjs",
+    "test:uat": "node scripts/test_uat_scenarios.cjs",
+    "test:ui": "node scripts/run_real_ui_uat.cjs",
+    "test:deep": "node scripts/run_deep_functional_ui_audit.cjs",
+    "test:negative": "node scripts/run_negative_and_integrity_audit.cjs",
+    "test:business-auth": "node scripts/run_business_rules_authorization_audit.cjs",
+    "test:auth": "node scripts/run_business_rules_authorization_audit.cjs",
+    "test:maturity": "node scripts/run_product_maturity_verification.cjs",
+    "test:identities": "node scripts/verify_all_9_identities.cjs",
+    "test:all": "node scripts/run_all_acceptance_suites.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.6",
@@ -34,10 +43,10 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
+    "playwright-core": "^1.65.1",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }
 }
-

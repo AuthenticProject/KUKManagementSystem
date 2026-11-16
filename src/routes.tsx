@@ -115,7 +115,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path="/finance"
           element={
-            <PermissionGuard permission="payroll.view">
+            <PermissionGuard permission="finance.view">
               <CashExpensePage />
             </PermissionGuard>
           }

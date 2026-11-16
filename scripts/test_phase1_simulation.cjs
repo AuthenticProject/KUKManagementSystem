@@ -197,8 +197,8 @@ function runSimulationSuite(isQuiet = false) {
         id: 'book-01',
         unit_id: 'unit-latansa',
         vehicle_id: 'veh-01',
-        start_time: new Date('2026-11-10T08:00:00Z'),
-        end_time: new Date('2026-11-10T12:00:00Z'),
+        start_time: new Date(Date.now() + 3600000),
+        end_time: new Date(Date.now() + 5 * 3600000),
         status: 'APPROVED',
       }
     ],
@@ -436,8 +436,10 @@ function runSimulationSuite(isQuiet = false) {
     return { success: true, booking_id: bookingId };
   }
 
-  // Booking overlapping with existing booking [2026-11-10T08:00:00Z to 12:00:00Z]
-  const overlapBooking = simulateBookVehicle('unit-latansa', 'veh-01', '2026-11-10T10:00:00Z', '2026-11-10T14:00:00Z');
+  // Booking overlapping with existing booking
+  const futureStart = new Date(Date.now() + 2 * 3600000).toISOString();
+  const futureEnd = new Date(Date.now() + 6 * 3600000).toISOString();
+  const overlapBooking = simulateBookVehicle('unit-latansa', 'veh-01', futureStart, futureEnd);
   assert(
     'RPC-SIM-10',
     'FLEET_EXCLUSION',

@@ -7,6 +7,10 @@ import { EmployeeFormModal } from './EmployeeFormModal';
 import { EmployeeSensitiveModal } from './EmployeeSensitiveModal';
 import { ResetPinModal } from './ResetPinModal';
 import { JobHistoryModal } from './JobHistoryModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { PrintHeader } from '@/components/common/PrintHeader';
+import { exportToCSV } from '@/utils/exportUtils';
+import { PageHeader } from '@/components/ui';
 import {
   Users,
   Search,
@@ -24,6 +28,9 @@ import {
   Power,
   ChevronLeft,
   ChevronRight,
+  Printer,
+  Download,
+  X,
 } from 'lucide-react';
 
 export const EmployeeListPage: React.FC = () => {
@@ -47,6 +54,14 @@ export const EmployeeListPage: React.FC = () => {
   const [selectedEmployeeForPin, setSelectedEmployeeForPin] = useState<Employee | null>(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedEmployeeForHistory, setSelectedEmployeeForHistory] = useState<Employee | null>(null);
+
+  // Status Change Confirmation Modal
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [targetEmployeeForStatus, setTargetEmployeeForStatus] = useState<Employee | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+
+  // Printable Employee Directory Modal
+  const [directoryModalOpen, setDirectoryModalOpen] = useState(false);
 
   // Notifications
   const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
@@ -74,18 +89,39 @@ export const EmployeeListPage: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const handleToggleStatus = async (emp: Employee) => {
-    if (!activeUnitId) return;
-    const newStatus = emp.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    const actionLabel = newStatus === 'ACTIVE' ? 'mengaktifkan kembali' : 'menonaktifkan';
-    const ok = window.confirm(`Apakah Anda yakin ingin ${actionLabel} karyawan "${emp.full_name}" (${emp.employee_code})?`);
-    if (!ok) return;
+  const handleOpenStatusModal = (emp: Employee) => {
+    setTargetEmployeeForStatus(emp);
+    setStatusModalOpen(true);
+  };
 
-    const res = await employeeService.updateEmployeeStatus(activeUnitId, emp.id, newStatus);
+  const handleConfirmStatusChange = async () => {
+    if (!activeUnitId || !targetEmployeeForStatus) return;
+    const newStatus = targetEmployeeForStatus.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    setStatusUpdating(true);
+    const res = await employeeService.updateEmployeeStatus(activeUnitId, targetEmployeeForStatus.id, newStatus);
+    setStatusUpdating(false);
+    setStatusModalOpen(false);
+    setTargetEmployeeForStatus(null);
     showToast(res.message, !res.success);
     if (res.success) {
       loadData();
     }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['Kode Karyawan', 'Nama Lengkap', 'Departemen', 'Jabatan', 'Email', 'Telepon', 'Status', 'Tanggal Bergabung'];
+    const rows = filtered.map((emp) => [
+      emp.employee_code,
+      emp.full_name,
+      emp.department?.name || '-',
+      emp.position?.title || '-',
+      emp.email || '-',
+      emp.phone || '-',
+      emp.status,
+      emp.join_date || '-',
+    ]);
+    exportToCSV(`Master_Karyawan_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    showToast(`Berhasil mengekspor ${filtered.length} data karyawan ke CSV.`);
   };
 
   const filtered = employees.filter((emp) => {
@@ -113,32 +149,49 @@ export const EmployeeListPage: React.FC = () => {
       )}
 
       {/* Header Halaman */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <Users className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Master Data Karyawan</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Daftar karyawan operasional unit <span className="font-semibold text-kuk-maroon">{activeUnit?.name || 'Unit Aktif'}</span>
-          </p>
-        </div>
+      <PageHeader
+        title="Master Data Karyawan"
+        subtitle={`Daftar karyawan operasional unit kerja ${activeUnit?.name || 'Unit Aktif'}`}
+        icon={<Users className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Karyawan' }]}
+        unitBadge={activeUnit?.name}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
+              title="Ekspor ke format CSV / Excel"
+            >
+              <Download className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span className="hidden sm:inline">Ekspor CSV</span>
+            </button>
 
-        {hasPermission('employees.create', activeUnitId) && (
-          <button
-            onClick={() => {
-              setEmployeeToEdit(null);
-              setFormOpen(true);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-kuk-maroon text-white rounded-xl text-sm font-semibold hover:bg-kuk-maroon-700 shadow-xs transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Karyawan</span>
-          </button>
-        )}
-      </div>
+            <button
+              onClick={() => setDirectoryModalOpen(true)}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
+              title="Buka tampilan cetak daftar induk karyawan"
+            >
+              <Printer className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span className="hidden sm:inline">Cetak Rekap</span>
+            </button>
+
+            {hasPermission('employees.create', activeUnitId) && (
+              <button
+                onClick={() => {
+                  setEmployeeToEdit(null);
+                  setFormOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-kuk-maroon text-white rounded-xl text-xs sm:text-sm font-semibold hover:bg-kuk-maroon-dark shadow-xs transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Karyawan</span>
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Error Alert Banner */}
       {error && !loading && (
@@ -198,118 +251,77 @@ export const EmployeeListPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Data Table */}
+      {/* Table Data */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-400 text-sm">Memuat data karyawan...</div>
+          <div className="p-12 text-center text-gray-400 text-sm">
+            <div className="animate-spin w-8 h-8 border-2 border-kuk-maroon border-t-transparent rounded-full mx-auto mb-3"></div>
+            Memuat data karyawan...
+          </div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="font-semibold text-gray-700">Tidak ada data karyawan ditemukan</p>
-            <p className="text-xs text-gray-400 mt-1">Coba sesuaikan kata kunci pencarian atau filter status.</p>
+            <p className="text-xs text-gray-400 mt-1">Coba sesuaikan kata kunci pencarian atau filter status</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-gray-50 text-gray-600 font-semibold uppercase">
                 <tr>
-                  <th className="px-5 py-3.5">Karyawan</th>
-                  <th className="px-5 py-3.5">Departemen & Jabatan</th>
-                  <th className="px-5 py-3.5">Kontak</th>
-                  <th className="px-5 py-3.5">Tipe & Bergabung</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5 text-right">Aksi</th>
+                  <th className="px-5 py-3">Karyawan</th>
+                  <th className="px-5 py-3">Departemen & Jabatan</th>
+                  <th className="px-5 py-3">Kontak</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {paginatedEmployees.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="font-semibold text-gray-900">{emp.full_name}</div>
-                      <div className="text-xs font-mono text-gray-500 mt-0.5">{emp.employee_code}</div>
+                  <tr key={emp.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <div className="font-bold text-gray-900 text-sm">{emp.full_name}</div>
+                      <div className="font-mono text-[11px] text-gray-400 mt-0.5">{emp.employee_code}</div>
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="font-medium text-gray-800">{emp.position?.title || 'Belum Ditentukan'}</div>
-                      <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                        <Building2 className="w-3 h-3 text-gray-400" />
-                        <span>{emp.department?.name || 'Tanpa Bagian'}</span>
+
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1.5 font-medium text-gray-800">
+                        <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                        <span>{emp.department?.name || 'Umum'}</span>
                       </div>
+                      <div className="text-[11px] text-gray-500 mt-0.5">{emp.position?.title || 'Staf Operasional'}</div>
                     </td>
-                    <td className="px-5 py-4">
+
+                    <td className="px-5 py-3.5 space-y-1">
+                      <div className="flex items-center gap-1.5 text-gray-600">
+                        <Mail className="w-3 h-3 text-gray-400" />
+                        <span className="truncate max-w-[150px]">{emp.email}</span>
+                      </div>
                       {emp.phone && (
-                        <div className="text-xs text-gray-600 flex items-center gap-1">
+                        <div className="flex items-center gap-1.5 text-gray-500 text-[11px]">
                           <Phone className="w-3 h-3 text-gray-400" />
                           <span>{emp.phone}</span>
                         </div>
                       )}
-                      {emp.email && (
-                        <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                          <Mail className="w-3 h-3 text-gray-400" />
-                          <span>{emp.email}</span>
-                        </div>
-                      )}
                     </td>
-                    <td className="px-5 py-4 text-xs">
-                      <span className="font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                        {emp.employment_type}
-                      </span>
-                      <div className="text-gray-400 mt-1">Gabung: {emp.join_date}</div>
-                    </td>
-                    <td className="px-5 py-4">
+
+                    <td className="px-5 py-3.5">
                       <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                           emp.status === 'ACTIVE'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : 'bg-rose-50 text-rose-700 border border-rose-200'
                         }`}
                       >
-                        {emp.status}
+                        {emp.status === 'ACTIVE' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                        <span>{emp.status}</span>
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* Riwayat Jabatan */}
-                        <button
-                          onClick={() => {
-                            setSelectedEmployeeForHistory(emp);
-                            setHistoryModalOpen(true);
-                          }}
-                          className="p-1.5 text-gray-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Riwayat Jabatan & Mutasi"
-                        >
-                          <History className="w-4 h-4 text-blue-600" />
-                        </button>
 
-                        {/* Reset PIN Kiosk (employees.manage_sensitive) */}
-                        {hasPermission('employees.manage_sensitive', activeUnitId) && (
-                          <button
-                            onClick={() => {
-                              setSelectedEmployeeForPin(emp);
-                              setPinModalOpen(true);
-                            }}
-                            className="p-1.5 text-gray-500 hover:text-kuk-gold hover:bg-kuk-gold/10 rounded-lg transition-colors"
-                            title="Reset PIN Kiosk Karyawan"
-                          >
-                            <KeyRound className="w-4 h-4 text-kuk-gold" />
-                          </button>
-                        )}
-
-                        {/* Data Sensitif */}
-                        {hasPermission('employees.view_sensitive', activeUnitId) && (
-                          <button
-                            onClick={() => {
-                              setSelectedEmployeeForSensitive(emp);
-                              setSensitiveModalOpen(true);
-                            }}
-                            className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Data Sensitif (NIK/Rekening/Gaji)"
-                          >
-                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                          </button>
-                        )}
-
-                        {/* Edit Data */}
-                        {hasPermission('employees.update', activeUnitId) && (
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Edit Info Umum */}
+                        {(hasPermission('employees.update', activeUnitId) || hasPermission('employees.edit', activeUnitId)) && (
                           <button
                             onClick={() => {
                               setEmployeeToEdit(emp);
@@ -322,13 +334,53 @@ export const EmployeeListPage: React.FC = () => {
                           </button>
                         )}
 
-                        {/* Nonaktifkan / Aktifkan Status (Anti-Hard Delete) */}
-                        {hasPermission('employees.update', activeUnitId) && (
+                        {/* Reset PIN Kiosk */}
+                        {(hasPermission('employees.update', activeUnitId) || hasPermission('employees.edit', activeUnitId)) && (
                           <button
-                            onClick={() => handleToggleStatus(emp)}
+                            onClick={() => {
+                              setSelectedEmployeeForPin(emp);
+                              setPinModalOpen(true);
+                            }}
+                            className="p-1.5 text-gray-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Reset PIN Mandiri"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {/* Riwayat Mutasi Jabatan */}
+                        <button
+                          onClick={() => {
+                            setSelectedEmployeeForHistory(emp);
+                            setHistoryModalOpen(true);
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Riwayat Mutasi Jabatan"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+
+                        {/* Data Sensitif NIK & Bank (Super Admin) */}
+                        {hasPermission('employees.view_sensitive', activeUnitId) && (
+                          <button
+                            onClick={() => {
+                              setSelectedEmployeeForSensitive(emp);
+                              setSensitiveModalOpen(true);
+                            }}
+                            className="p-1.5 text-kuk-gold hover:text-kuk-gold-dark hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Lihat Data Sensitif (NIK / Bank)"
+                          >
+                            <ShieldCheck className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {/* Toggle Status Aktif / Non-Aktif via ConfirmModal */}
+                        {(hasPermission('employees.update', activeUnitId) || hasPermission('employees.edit', activeUnitId)) && (
+                          <button
+                            onClick={() => handleOpenStatusModal(emp)}
                             className={`p-1.5 rounded-lg transition-colors ${
                               emp.status === 'ACTIVE'
-                                ? 'text-gray-400 hover:text-red-700 hover:bg-red-50'
+                                ? 'text-gray-400 hover:text-rose-600 hover:bg-rose-50'
                                 : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
                             }`}
                             title={emp.status === 'ACTIVE' ? 'Nonaktifkan Karyawan' : 'Aktifkan Kembali Karyawan'}
@@ -345,7 +397,7 @@ export const EmployeeListPage: React.FC = () => {
           </div>
         )}
 
-        {/* Pagination Bar */}
+        {/* Pagination Footer */}
         {filtered.length > pageSize && (
           <div className="px-5 py-3.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
             <div>
@@ -353,7 +405,7 @@ export const EmployeeListPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -361,7 +413,7 @@ export const EmployeeListPage: React.FC = () => {
               </button>
               <span className="font-semibold px-2 py-1">Halaman {page} dari {totalPages}</span>
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -372,7 +424,122 @@ export const EmployeeListPage: React.FC = () => {
         )}
       </div>
 
-      {/* Modals */}
+      {/* Confirmation Modal for Employee Status Toggle */}
+      {targetEmployeeForStatus && (
+        <ConfirmModal
+          isOpen={statusModalOpen}
+          title={
+            targetEmployeeForStatus.status === 'ACTIVE'
+              ? 'Konfirmasi Penonaktifan Karyawan'
+              : 'Konfirmasi Pengaktifan Kembali'
+          }
+          message={`Apakah Anda yakin ingin ${
+            targetEmployeeForStatus.status === 'ACTIVE' ? 'menonaktifkan' : 'mengaktifkan kembali'
+          } karyawan "${targetEmployeeForStatus.full_name}" (${targetEmployeeForStatus.employee_code})? ${
+            targetEmployeeForStatus.status === 'ACTIVE'
+              ? 'Karyawan non-aktif tidak akan dapat melakukan presensi atau login ke portal, namun seluruh riwayat penggajian dan transaksi tetap tersimpan utuh.'
+              : 'Karyawan akan kembali aktif dalam operasional unit kerja.'
+          }`}
+          confirmLabel={targetEmployeeForStatus.status === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'}
+          cancelLabel="Batal"
+          variant={targetEmployeeForStatus.status === 'ACTIVE' ? 'danger' : 'primary'}
+          isLoading={statusUpdating}
+          onConfirm={handleConfirmStatusChange}
+          onCancel={() => {
+            setStatusModalOpen(false);
+            setTargetEmployeeForStatus(null);
+          }}
+        />
+      )}
+
+      {/* Modal Cetak Rekap Karyawan Unit */}
+      {directoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="px-6 py-3.5 bg-gray-900 text-white flex items-center justify-between print:hidden">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-kuk-gold" />
+                <span className="font-bold text-sm">Daftar Induk Karyawan — {activeUnit?.name || 'Unit Operasional'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-kuk-maroon text-white hover:bg-kuk-maroon-700 rounded-lg text-xs font-semibold transition-colors shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak Dokumen</span>
+                </button>
+                <button
+                  onClick={() => setDirectoryModalOpen(false)}
+                  className="text-white/80 hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-6 text-xs bg-white text-gray-800">
+              <PrintHeader
+                title="DAFTAR INDUK KARYAWAN"
+                documentNumber={`DIK/${activeUnit?.code || 'KUK'}/${new Date().getFullYear()}`}
+                unitName={activeUnit?.name}
+                unitCode={activeUnit?.code}
+              />
+
+              <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-700 font-bold uppercase border-b border-gray-200">
+                    <tr>
+                      <th className="px-3 py-2.5">No</th>
+                      <th className="px-3 py-2.5">NIP</th>
+                      <th className="px-3 py-2.5">Nama Lengkap</th>
+                      <th className="px-3 py-2.5">Departemen</th>
+                      <th className="px-3 py-2.5">Jabatan</th>
+                      <th className="px-3 py-2.5">Status</th>
+                      <th className="px-3 py-2.5">Tgl Masuk</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filtered.map((emp, idx) => (
+                      <tr key={emp.id} className="hover:bg-gray-50/50">
+                        <td className="px-3 py-2 text-gray-500 font-mono">{idx + 1}</td>
+                        <td className="px-3 py-2 font-mono font-bold text-gray-900">{emp.employee_code}</td>
+                        <td className="px-3 py-2 font-semibold text-gray-900">{emp.full_name}</td>
+                        <td className="px-3 py-2 text-gray-700">{emp.department?.name || 'Umum'}</td>
+                        <td className="px-3 py-2 text-gray-600">{emp.position?.title || 'Staf Operasional'}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            emp.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                          }`}>
+                            {emp.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-gray-500">{emp.join_date || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Signatures */}
+              <div className="grid grid-cols-2 gap-8 pt-6 border-t border-gray-200 text-center">
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Dibuat & Diverifikasi Oleh:</div>
+                  <div className="border-b border-gray-300 w-36 mx-auto"></div>
+                  <div className="font-bold text-gray-800">Personalia / HRD Unit</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Mengetahui & Menyetujui:</div>
+                  <div className="border-b border-gray-300 w-36 mx-auto"></div>
+                  <div className="font-bold text-gray-800">Kepala Toko / Manager</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Existing Modals */}
       <EmployeeFormModal
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}

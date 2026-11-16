@@ -3,6 +3,9 @@ import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { financeService } from '@/services/dataService';
 import type { CashExpense, ExpenseCategory } from '@/types/models';
+import { PrintHeader } from '@/components/common/PrintHeader';
+import { exportToCSV } from '@/utils/exportUtils';
+import { PageHeader } from '@/components/ui';
 import {
   Wallet,
   Plus,
@@ -21,6 +24,7 @@ import {
   Coffee,
   ShoppingBag,
   Layers,
+  Printer,
 } from 'lucide-react';
 
 export const CashExpensePage: React.FC = () => {
@@ -43,6 +47,8 @@ export const CashExpensePage: React.FC = () => {
   const [rejectModalOpen, setRejectModalOpen] = useState<boolean>(false);
   const [selectedExpenseForReject, setSelectedExpenseForReject] = useState<CashExpense | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [voucherModalOpen, setVoucherModalOpen] = useState<boolean>(false);
+  const [selectedExpenseForVoucher, setSelectedExpenseForVoucher] = useState<CashExpense | null>(null);
 
   // Form State
   const [expCategory, setExpCategory] = useState<ExpenseCategory>('OPERATIONAL');
@@ -193,18 +199,29 @@ export const CashExpensePage: React.FC = () => {
   }, [expenses]);
 
   const handleExportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'No. Bukti,Tanggal,Kategori,Penerima,Deskripsi,Nominal,Status,Disetujui Oleh,Alasan Penolakan\n';
-    filteredExpenses.forEach((exp) => {
-      csvContent += `"${exp.expense_number}","${exp.expense_date}","${exp.category}","${exp.recipient_name}","${exp.description}","${exp.amount}","${exp.approval_status}","${exp.approved_by_name || '-'}","${exp.rejection_reason || '-'}"\n`;
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Pengeluaran_Kas_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const headers = [
+      'No. Bukti',
+      'Tanggal',
+      'Kategori',
+      'Penerima',
+      'Deskripsi',
+      'Nominal',
+      'Status',
+      'Disetujui Oleh',
+      'Alasan Penolakan',
+    ];
+    const rows = filteredExpenses.map((exp) => [
+      exp.expense_number,
+      exp.expense_date,
+      exp.category,
+      exp.recipient_name,
+      exp.description,
+      exp.amount,
+      exp.approval_status,
+      exp.approved_by_name || '-',
+      exp.rejection_reason || '-',
+    ]);
+    exportToCSV(`Pengeluaran_Kas_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`, headers, rows);
   };
 
   const getCategoryBadge = (cat: ExpenseCategory) => {
@@ -271,38 +288,34 @@ export const CashExpensePage: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <Wallet className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Kas & Pengeluaran Toko</h1>
+      {/* Header Halaman */}
+      <PageHeader
+        title="Kas & Pengeluaran Toko"
+        subtitle={`Pencatatan kas kecil toko & otorisasi pengeluaran unit ${activeUnit?.name || 'Unit Aktif'}`}
+        icon={<Wallet className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Kas & Pengeluaran' }]}
+        unitBadge={activeUnit?.name}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+              title="Ekspor CSV"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span>Ekspor CSV</span>
+            </button>
+
+            <button
+              onClick={() => setRecordModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white rounded-xl text-xs sm:text-sm font-semibold hover:bg-kuk-maroon-dark transition-colors shadow-xs"
+            >
+              <Plus className="w-4 h-4 text-kuk-gold" />
+              <span>Catat Pengeluaran Kas</span>
+            </button>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Pencatatan kas kecil toko & otorisasi pengeluaran unit <span className="font-semibold text-kuk-maroon">{activeUnit?.name || 'Unit Aktif'}</span>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Ekspor CSV</span>
-          </button>
-
-          <button
-            onClick={() => setRecordModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white rounded-xl text-xs font-semibold hover:bg-kuk-maroon-700 transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Catat Pengeluaran Kas</span>
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Error Alert Banner */}
       {error && !loading && (
@@ -500,30 +513,43 @@ export const CashExpensePage: React.FC = () => {
                     </td>
 
                     <td className="px-4 py-3 text-right">
-                      {canApprove && exp.approval_status === 'PENDING' ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleApprove(exp)}
-                            disabled={actionProcessing}
-                            className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-2xs disabled:opacity-50"
-                          >
-                            Setujui
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedExpenseForReject(exp);
-                              setRejectionReason('');
-                              setRejectModalOpen(true);
-                            }}
-                            disabled={actionProcessing}
-                            className="px-2.5 py-1 bg-white text-rose-600 border border-rose-200 rounded-lg text-xs font-semibold hover:bg-rose-50 transition-colors shadow-2xs disabled:opacity-50"
-                          >
-                            Tolak
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-gray-400 italic">Selesai</span>
-                      )}
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => {
+                            setSelectedExpenseForVoucher(exp);
+                            setVoucherModalOpen(true);
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-kuk-maroon hover:bg-kuk-maroon-50 rounded-lg transition-colors"
+                          title="Cetak Bukti Pengeluaran Kas (Voucher)"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </button>
+
+                        {canApprove && exp.approval_status === 'PENDING' ? (
+                          <>
+                            <button
+                              onClick={() => handleApprove(exp)}
+                              disabled={actionProcessing}
+                              className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-2xs disabled:opacity-50"
+                            >
+                              Setujui
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedExpenseForReject(exp);
+                                setRejectionReason('');
+                                setRejectModalOpen(true);
+                              }}
+                              disabled={actionProcessing}
+                              className="px-2.5 py-1 bg-white text-rose-600 border border-rose-200 rounded-lg text-xs font-semibold hover:bg-rose-50 transition-colors shadow-2xs disabled:opacity-50"
+                            >
+                              Tolak
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[11px] text-gray-400 italic">Selesai</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -690,6 +716,111 @@ export const CashExpensePage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cetak Bukti Pengeluaran Kas (Petty Cash Voucher) */}
+      {voucherModalOpen && selectedExpenseForVoucher && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="px-6 py-3.5 bg-gray-900 text-white flex items-center justify-between print:hidden">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-kuk-gold" />
+                <span className="font-bold text-sm">Bukti Kas Keluar — {selectedExpenseForVoucher.expense_number}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-kuk-maroon text-white hover:bg-kuk-maroon-700 rounded-lg text-xs font-semibold transition-colors shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak Voucher</span>
+                </button>
+                <button
+                  onClick={() => setVoucherModalOpen(false)}
+                  className="text-white/80 hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-6 text-xs bg-white text-gray-800">
+              <PrintHeader
+                title="BUKTI PENGELUARAN KAS KECIL"
+                documentNumber={selectedExpenseForVoucher.expense_number}
+                unitName={activeUnit?.name}
+                unitCode={activeUnit?.code}
+                date={selectedExpenseForVoucher.expense_date}
+              />
+
+              <div className="grid grid-cols-2 gap-4 bg-gray-50/70 p-4 rounded-xl border border-gray-200">
+                <div className="space-y-1">
+                  <div className="text-gray-500 text-[11px]">Dibayarkan Kepada:</div>
+                  <div className="font-bold text-gray-900 text-sm">{selectedExpenseForVoucher.recipient_name}</div>
+                  <div className="text-gray-600 font-medium">Kategori: {selectedExpenseForVoucher.category}</div>
+                </div>
+                <div className="space-y-1 text-right">
+                  <div className="text-gray-500 text-[11px]">Status Otorisasi:</div>
+                  <div className="font-bold text-sm">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedExpenseForVoucher.approval_status === 'APPROVED'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : selectedExpenseForVoucher.approval_status === 'REJECTED'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {selectedExpenseForVoucher.approval_status}
+                    </span>
+                  </div>
+                  {selectedExpenseForVoucher.approved_by_name && (
+                    <div className="text-[10px] text-gray-500">Oleh: {selectedExpenseForVoucher.approved_by_name}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+                <div className="text-gray-500 text-[11px] uppercase font-bold tracking-wider">Keterangan / Keperluan Pembayaran:</div>
+                <div className="text-sm font-medium text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                  {selectedExpenseForVoucher.description}
+                </div>
+                {selectedExpenseForVoucher.rejection_reason && (
+                  <div className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                    <strong>Catatan Penolakan:</strong> {selectedExpenseForVoucher.rejection_reason}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-kuk-maroon text-white rounded-xl flex items-center justify-between shadow-xs">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-kuk-gold font-bold">Total Uang Dikeluarkan</div>
+                  <div className="text-[11px] text-white/80 mt-0.5">Sesuai Nota / Kwitansi Pengeluaran Asli</div>
+                </div>
+                <div className="text-2xl font-black text-kuk-gold font-mono tracking-tight">
+                  {formatRupiah(selectedExpenseForVoucher.amount)}
+                </div>
+              </div>
+
+              {/* Signatures */}
+              <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-200 text-center">
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Penerima Uang:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">({selectedExpenseForVoucher.recipient_name})</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Kasir / Pencatat:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">(Kasir Toko)</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Menyetujui:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">({selectedExpenseForVoucher.approved_by_name || 'Kepala Toko'})</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

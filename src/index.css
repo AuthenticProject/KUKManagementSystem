@@ -2,15 +2,121 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   OFFICIAL KUK BRAND TYPOGRAPHY (@font-face)
+   Reference: Rebranding KUK.pdf
+   ========================================================================== */
+
+/* 1. REVANS — Official Display Heading & Brand Identity */
+@font-face {
+  font-family: 'Revans';
+  src: url('/brand/fonts/FontsFree-Net-Revans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Revans';
+  src: url('/brand/fonts/Revans-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 2. Plus Jakarta Sans — Official Application & Operational Interface Font */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/brand/fonts/PlusJakartaSans-VariableFont_wght.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/brand/fonts/PlusJakartaSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/brand/fonts/PlusJakartaSans-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/brand/fonts/PlusJakartaSans-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   CSS CUSTOM DESIGN TOKENS
+   ========================================================================== */
 :root {
   color-scheme: light;
+
+  /* Official Brand Palette */
+  --kuk-maroon: #540000;
+  --kuk-maroon-deep: #3B0000;
+  --kuk-gold: #FFCC00;
+  --kuk-gold-dark: #996414;
+  --kuk-grey-light: #E5E5E5;
+  --kuk-red: #FF0000;
+  --kuk-white: #FFFFFF;
+
+  /* Surfaces & Structural */
+  --kuk-surface-bg: #F8F9FA;
+  --kuk-surface-card: #FFFFFF;
+  --kuk-surface-border: #E5E5E5;
+  --kuk-surface-hover: #F4F5F7;
+
+  /* Typography */
+  --font-display: 'Revans', 'Plus Jakarta Sans', sans-serif;
+  --font-interface: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #F9FAFB;
+  background-color: var(--kuk-surface-bg);
   color: #111827;
+  font-family: var(--font-interface);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Display Headings */
+h1, h2, .font-display, .font-revans {
+  letter-spacing: -0.01em;
+}
+
+/* Geometric Brand Background Pattern */
+.bg-kuk-pattern {
+  background-color: var(--kuk-maroon);
+  background-image: radial-gradient(rgba(255, 204, 0, 0.08) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.bg-kuk-pattern-subtle {
+  background-image: radial-gradient(rgba(84, 0, 0, 0.04) 1px, transparent 0);
+  background-size: 16px 16px;
+}
+
+/* Brand Gold Gradient Accent Line */
+.kuk-gold-line {
+  height: 2px;
+  background: linear-gradient(90deg, #FFCC00 0%, #996414 100%);
+}
+
+.kuk-gold-border-t {
+  border-top: 2px solid #FFCC00;
 }
 
 /* Custom Scrollbars */
@@ -32,3 +138,47 @@ body {
   background: #9CA3AF;
 }
 
+/* Accessible Focus Rings */
+:focus-visible {
+  outline: 2px solid #FFCC00;
+  outline-offset: 2px;
+}
+
+/* Print Stylesheet for Enterprise Reports */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  header,
+  aside,
+  nav,
+  .print\:hidden,
+  button,
+  .fixed,
+  .sticky {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print\:shadow-none {
+    box-shadow: none !important;
+    border-color: #E5E5E5 !important;
+  }
+}

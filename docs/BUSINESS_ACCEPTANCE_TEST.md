@@ -1,254 +1,195 @@
-# PANDUAN & DOKUMEN PENGUJIAN PENERIMAAN PENGGUNA (UAT)
+# PANDUAN & DOKUMEN PENGUJIAN PENERIMAAN PENGGUNA (BUSINESS ACCEPTANCE TEST)
 ## KUK MANAGEMENT SYSTEM v3.1.0 — RELEASE CANDIDATE (RC)
 
 **Target Sistem:** KUK Management System v3.1.0  
 **Lokasi Penerapan:** TB KUK La Tansa & KUK Palen  
-**Tujuan Dokumen:** Format pengujian formal untuk pengelola unit, kepala toko, kasir, supervisor, dan pimpinan untuk memvalidasi kelayakan operasional sistem sebelum dioperasikan secara penuh.
+**Tujuan Dokumen:** Format pengujian formal terpadu untuk Direksi/Pimpinan, HRD, Kepala Toko (Admin Unit), Petugas Keuangan, Kasir, Pengemudi (Driver), dan Tukang Potong (Cutter) untuk memvalidasi kelayakan operasional sistem sebelum digunakan secara komersial.
 
 ---
 
-### PANDUAN PENTING BAGI PENGUJI
+### PANDUAN PENTING BAGI PENGUJI (TESTER GUIDELINES)
 
 > [!IMPORTANT]
 > **BATASAN PENGUJIAN & PERLINDUNGAN PRIVASI DATA:**
-> 1. **Dilarang menggunakan data karyawan asli** (gunakan nama contoh/fiktif, misalnya: *Budi Santoso (Demo)*, *Ahmad Fulan*, *Siti Karyawan*).
-> 2. **Dilarang menguji pada database Supabase Production langsung** (`ckzciuybedefbsdfsexh`). Pengujian dilakukan pada lingkungan lokal / staging demo terisolasi.
-> 3. Dokumen ini disiapkan untuk diisi langsung oleh pengguna manusia secara fisik (dicetak) atau digital selama sesi UAT berlangsung.
-> 4. Status fitur belum dianggap "LULUS" sebelum penguji memberikan tanda centang `PASS` dan mencantumkan catatan hasil pengujian faktual.
+> 1. **Dilarang menggunakan data karyawan asli** (gunakan nama contoh fiktif yang telah disiapkan sistem, misalnya: *Budi Santoso (Demo)*, *Ahmad Subandi (Demo)*, *Siti Rahma (Demo)*).
+> 2. **Dilarang menguji pada database Supabase Production langsung** (`ckzciuybedefbsdfsexh.supabase.co`). Seluruh pengujian UAT ini dijalankan pada lingkungan lokal terisolasi (*Zero-State Local Preview Mode*) pada alamat `http://localhost:3000`.
+> 3. Dokumen ini disiapkan untuk diisi secara langsung oleh pengguna manusia secara fisik (dicetak) atau digital selama sesi UAT berlangsung.
+> 4. Status fitur **TIDAK BOLEH** dianggap "LULUS" sebelum penguji memberikan tanda centang `[x] PASS`, mencantumkan hasil aktual, serta paraf penguji.
 
 ---
 
-## 1. PETUNJUK PENGISIAN & DEFINISI KLASIFIKASI TEMUAN
+## 1. PETUNJUK PENGISIAN & KLASIFIKASI TEMUAN
 
-### A. Kolom Hasil Pengujian
-- **PASS**: Alur fungsi berjalan persis sesuai dengan skenario dan hasil yang diharapkan.
-- **FAIL**: Alur fungsi gagal, data tidak tersimpan, terjadi galat tidak tertangani, atau aturan bisnis terlanggar.
-- **NOT TESTED**: Skenario belum sempat diuji dalam sesi pengujian saat ini.
+### A. Kolom Status Pengujian
+- `[ ] PASS`: Alur fungsi berjalan persis sesuai skenario dan hasil yang diharapkan.
+- `[ ] FAIL`: Alur fungsi gagal, data tidak tersimpan, terjadi galat tidak tertangani, atau aturan bisnis terlanggar.
+- `[ ] NOT TESTED`: Skenario belum sempat diuji dalam sesi pengujian saat ini.
 
 ### B. Tingkat Keparahan Temuan (Defect Severity)
-Jika ditemukan ketidaksesuaian saat pengujian, catat temuan pada **Formulir Pencatatan Temuan** menggunakan kategori berikut:
-1. **Critical**: Sistem terhenti, data antar-unit bocor, transaksi uang/gaji salah hitung, atau data hilang/rusak tanpa pemulihan.
-2. **Major**: Alur kerja operasional utama terhambat (misal: kasir tidak bisa verifikasi tip, cuti tidak bisa diajukan), tetapi tidak merusak data.
+Jika ditemukan ketidaksesuaian saat pengujian, catat temuan pada **Formulir Pencatatan Temuan (Bagian 4)** menggunakan klasifikasi berikut:
+1. **Critical**: Sistem terhenti (*crash*), data antar-unit bocor, transaksi uang/gaji salah hitung, atau data hilang tanpa pemulihan.
+2. **Major**: Alur kerja operasional utama terhambat (misal: kasir tidak bisa verifikasi tip, cuti tidak bisa disetujui), tetapi tidak merusak data lain.
 3. **Minor**: Ketidaksesuaian kecil pada tampilan, salah ketik teks label, posisi tombol kurang pas, namun fungsi tetap berjalan.
 4. **Enhancement**: Usulan penyempurnaan kemudahan penggunaan (UI/UX) atau penambahan opsi baru untuk rilis berikutnya.
 
 ---
 
-## 2. DATA PENGUJI & PERSIAPAN LINGKUNGAN UAT
+## 2. LEMBAR DATA PENGUJI (TESTER PROFILE)
 
-| Data Administrasi UAT | Informasi Pengujian |
+| Informasi Administrasi UAT | Data Isian Penguji |
 | :--- | :--- |
-| **Tanggal Pengujian** | `____ / ________ / 2026` |
-| **Unit Bisnis yang Diuji** | [ ] TB KUK La Tansa &nbsp;&nbsp;&nbsp;&nbsp; [ ] KUK Palen &nbsp;&nbsp;&nbsp;&nbsp; [ ] Pengujian Lintas Unit |
-| **Nama Penguji (User)** | `________________________________________________` |
-| **Peran / Jabatan Penguji** | [ ] Pimpinan / Owner &nbsp;&nbsp; [ ] Kepala Toko &nbsp;&nbsp; [ ] Kasir &nbsp;&nbsp; [ ] Supervisor &nbsp;&nbsp; [ ] Checker |
-| **Perangkat yang Digunakan** | [ ] Laptop / PC Toko &nbsp;&nbsp; [ ] Tablet &nbsp;&nbsp; [ ] Smartphone Kiosk |
-| **Browser yang Digunakan** | [ ] Google Chrome &nbsp;&nbsp; [ ] Microsoft Edge &nbsp;&nbsp; [ ] Mozilla Firefox &nbsp;&nbsp; [ ] Safari |
+| **Tanggal Pengujian** | `..... / ..... / 2026` |
+| **Nama Lengkap Penguji** | ........................................................................ |
+| **Jabatan / Peran Penguji** | [ ] Pimpinan / Direksi &nbsp;&nbsp; [ ] HRD & Personalia &nbsp;&nbsp; [ ] Kepala Toko (Admin Unit)<br>[ ] Petugas Keuangan &nbsp;&nbsp; [ ] Kasir Toko &nbsp;&nbsp; [ ] Driver / Supir &nbsp;&nbsp; [ ] Cutter / Pemotong |
+| **Unit Kerja Penguji** | [ ] TB KUK La Tansa &nbsp;&nbsp;&nbsp;&nbsp; [ ] KUK Palen &nbsp;&nbsp;&nbsp;&nbsp; [ ] Kantor Pusat (Lintas Unit) |
+| **Perangkat yang Digunakan** | [ ] Komputer Desktop (PC Toko) &nbsp;&nbsp; [ ] Laptop Kantor &nbsp;&nbsp; [ ] Tablet &nbsp;&nbsp; [ ] Smartphone |
+| **Peramban (Browser)** | [ ] Google Chrome &nbsp;&nbsp; [ ] Microsoft Edge &nbsp;&nbsp; [ ] Mozilla Firefox &nbsp;&nbsp; [ ] Safari |
 
 ---
 
-## 3. MATRIKS SKENARIO PENGUJIAN PENERIMAAN PENGGUNA (UAT)
+## 3. MATRIKS SKENARIO PENGUJIAN PENERIMAAN BISNIS (UAT SCENARIO MATRIX)
 
 ---
 
-### MODUL 0: OTENTIKASI, HAK AKSES RBAC, DAN ISOLASI DATA UNIT
+### A. MANAJEMEN KARYAWAN (EMPLOYEE MANAGEMENT)
+**Tujuan:** Memvalidasi pengelolaan data pegawai, penambahan & pengubahan data, pencarian & filter, proteksi data sensitif, ekspor CSV, dan larangan penghapusan fisik (*anti-hard-delete*).
 
-Tujuan: Memastikan pemisahan mutlak data operasional antara La Tansa dan KUK Palen, serta pembatasan menu sesuai wewenang peran kerja.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-0.1** | **Isolasi Data Unit** | **Positif:** Pergantian Unit Aktif membatasi tampilan data | 1. Login sebagai Pimpinan.<br>2. Pada pemilih unit di pojok atas, pilih **TB KUK La Tansa**.<br>3. Buka menu Karyawan dan Cuti.<br>4. Ganti pemilih unit ke **KUK Palen**.<br>5. Buka kembali menu Karyawan dan Cuti. | Daftar karyawan dan cuti yang muncul di unit La Tansa **TIDAK MUNCUL** saat unit KUK Palen dipilih, dan sebaliknya. Data terisolasi 100%. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-0.2** | **Isolasi Data Unit** | **Negatif:** User unit lokal tidak boleh melihat unit lain | 1. Login sebagai Kepala Toko atau Kasir yang ditugaskan di **KUK Palen** saja.<br>2. Perhatikan dropdown pemilih unit. | Pengguna hanya melihat unit **KUK Palen**; opsi untuk memilih atau mengintip data La Tansa tidak tersedia. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-0.3** | **Hak Akses Peran** | **Positif:** Kasir memiliki menu transaksi & verifikasi | 1. Login menggunakan akun dengan peran **KASIR**.<br>2. Periksa menu bilah sisi (sidebar). | Menu Tip Potong Kaca dan Pengeluaran Kas dapat diakses. Menu penggajian (Payroll) atau pengaturan sistem tidak dapat diakses. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-0.4** | **Hak Akses Peran** | **Negatif:** Cutter dilarang mengakses menu sensitif | 1. Login sebagai staf **CUTTER**.<br>2. Coba akses menu Penggajian atau Data Sensitif Karyawan. | Menu tidak ditampilkan pada sidebar. Jika URL diketik langsung, sistem menampilkan pesan penolakan akses (Akses Ditolak). | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-
----
-
-### MODUL 1: DASHBOARD & NAVIGASI OPERASIONAL
-
-Tujuan: Memastikan ringkasan angka operasional ditampilkan akurat, status jaringan/loading ramah pengguna, dan pesan error jelas.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-1.1** | **KPI Ringkasan Operasional** | **Positif:** Menampilkan kartu ringkasan unit aktif | 1. Buka halaman utama Dashboard.<br>2. Perhatikan 6 kartu metrik: Karyawan Aktif, Presensi Hari Ini, Cuti Tertunda, Tip Belum Verifikasi, Armada Siap, Kas Keluar. | Kartu metrik menampilkan angka faktual sesuai unit yang dipilih tanpa kendala. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-1.2** | **Konteks Dashboard Pusat** | **Positif:** Pimpinan melihat ringkasan gabungan | 1. Login sebagai Pimpinan.<br>2. Pilih konteks **Semua Unit (Dashboard Pusat)**.<br>3. Periksa badge konteks di bagian atas. | Muncul label berwarna merah marun/emas: *"Konteks: Dashboard Pusat (Seluruh Unit)"* dan menyajikan agregat kedua toko. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-1.3** | **Indikator Loading & Error** | **Positif:** Tampilan loading halus saat memuat data | 1. Buka salah satu halaman menu (misal Presensi atau Pengeluaran).<br>2. Perhatikan transisi saat memuat data. | Muncul animasi pemuatan (spinner / teks memuat data) yang rapi, bukan layar putih kosong atau tampilan rusak. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-EMP-01** | HRD / Kepala Toko | Login sebagai **HRD Demo** atau **Manager La Tansa** | 1. Buka menu **Karyawan** (`/employees`).<br>2. Periksa daftar karyawan yang tampil. | Daftar karyawan unit aktif tampil lengkap dengan NIP, Nama, Departemen, Posisi, dan Status aktif. NIK disensor secara aman (`320101******0001`). | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-EMP-02** | HRD / Kepala Toko | Berada di halaman `/employees` | 1. Klik tombol **Tambah Karyawan**.<br>2. Isi Nama: `Ahmad Syahroni (Demo)`, No. HP: `081299991111`, Departemen: `Potong Kaca`, Posisi: `Tukang Potong Kaca`.<br>3. Klik **Simpan**.<br>4. Cari karyawan tersebut, klik ikon edit (pensil).<br>5. Ubah nomor HP menjadi `081299992222` lalu simpan. | Karyawan baru berhasil tersimpan, langsung muncul di tabel unit aktif, dan pembaruan nomor HP terupdate secara instan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-EMP-03** | HRD / Kepala Toko | Berada di halaman `/employees` | 1. Masukkan kata kunci nama pada kotak pencarian (contoh: `Budi`).<br>2. Pilih filter Departemen: `Kasir`.<br>3. Reset filter ke Semua. | Tabel memfilter data secara instan sesuai kata kunci dan departemen terpilih tanpa perlu me-reload halaman. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-EMP-04** | HRD / Kepala Toko | Berada di halaman `/employees` | 1. Klik tombol **Ekspor CSV**.<br>2. Buka berkas CSV yang terunduh menggunakan Microsoft Excel. | Berkas CSV terunduh dengan format UTF-8 BOM, nama file memuat kode unit dan tanggal, serta karakter Indonesia terbaca rapi di Excel tanpa kolom berantakan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-EMP-05** | HRD / Kepala Toko | Berada di halaman `/employees` | 1. Pilih salah satu karyawan.<br>2. Klik tombol ubah status menjadi `INACTIVE` atau `RESIGNED`.<br>3. Periksa modal konfirmasi dan periksa tabel. | Muncul modal konfirmasi elegan (*ConfirmModal*, bukan browser alert mentah). Baris karyawan **TIDAK TERHAPUS FISIK** dari database; status berubah nonaktif dan riwayat kerja tetap tersimpan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-### MODUL 2: MANAJEMEN KARYAWAN & PERLINDUNGAN DATA SENSITIF
+### B. PRESENSI & SESI BRIEFING (ATTENDANCE & BRIEFINGS)
+**Tujuan:** Memvalidasi pencatatan jam kerja sesuai zona waktu WIB, pencatatan sesi briefing pagi operasional toko, dan tinjauan rekapitulasi bulanan.
 
-Tujuan: Memvalidasi pengelolaan data pegawai, perlindungan data pribadi (NIK/Bank/BPJS), serta larangan penghapusan fisik.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-2.1** | **Tambah Karyawan Baru** | **Positif:** Mendaftarkan data profil karyawan contoh | 1. Buka menu **Karyawan**.<br>2. Klik tombol **Tambah Karyawan**.<br>3. Isi Nama: `Budi UAT`, NIK: `3201010101010001`, Departemen: `Potong Kaca`, Posisi: `Tukang Potong Kaca`.<br>4. Klik **Simpan Data**. | Karyawan baru tersimpan dan langsung muncul pada tabel daftar karyawan unit tersebut. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-2.2** | **Proteksi Data Sensitif** | **Positif:** Masking NIK dan nomor rekening bank | 1. Buka daftar karyawan.<br>2. Lihat kolom NIK dan informasi kontak karyawan biasa. | NIK ditampilkan dengan tanda sensor (contoh: `320101******0001`). Hanya pengguna dengan izin `employees.view_sensitive` yang dapat membuka modal detail. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-2.3** | **Anti-Penghapusan Fisik (Anti-Hard-Delete)** | **Negatif:** Sistem tidak mengizinkan penghapusan permanen riwayat karyawan | 1. Pilih karyawan yang sudah memiliki catatan kerja/gaji.<br>2. Periksa aksi yang tersedia.<br>3. Nonaktifkan karyawan via ubah status ke `INACTIVE` atau `RESIGNED`. | Tidak ada tombol untuk menghapus baris secara fisik dari database. Status berubah menjadi tidak aktif, histori kerja tetap utuh. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-2.4** | **Reset PIN Kiosk Mandiri** | **Positif:** Pembuatan PIN 6-digit baru untuk presensi/tip | 1. Klik ikon kunci pada baris karyawan `Budi UAT`.<br>2. Masukkan PIN baru: `123456`.<br>3. Klik **Reset PIN Karyawan**. | Sistem mengonfirmasi perubahan PIN berhasil. Format 6 digit tervalidasi. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-ATT-01** | Supervisor / Kepala Toko | Login sebagai **Supervisor Demo** atau **Manager La Tansa** | 1. Buka menu **Presensi** (`/attendance`).<br>2. Periksa tanggal default dan daftar absensi harian. | Kalender dan jam presensi menampilkan tanggal hari ini sesuai Waktu Indonesia Barat (WIB, Asia/Jakarta) tanpa pergeseran zona waktu internasional. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-ATT-02** | Supervisor / Kepala Toko | Berada di halaman `/attendance` | 1. Klik tombol **Sesi Briefing Baru**.<br>2. Masukkan Topik: `Briefing K3 Penanganan Kaca & Kerapian Kasir`.<br>3. Narasumber: `Kepala Toko`, Jumlah Hadir: `8`.<br>4. Klik **Simpan Briefing**. | Sesi briefing tersimpan, muncul di kartu sesi briefing hari ini lengkap dengan nama pemateri, jumlah peserta, dan timestamp waktu pencatatan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-ATT-03** | Supervisor / Kepala Toko | Berada di halaman `/attendance` | 1. Buka tab **Rekap Bulanan**.<br>2. Periksa akumulasi Hadir, Terlambat, Izin, dan Cuti karyawan unit. | Ringkasan kehadiran bulanan terakumulasi secara akurat dan tombol **Ekspor CSV** mengunduh rekap presensi terformat UTF-8 BOM. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-### MODUL 3: PRESENSI & SESI BRIEFING PAGI
+### C. PENGAJUAN & PENGELOLAAN CUTI (LEAVE MANAGEMENT)
+**Tujuan:** Memvalidasi kepatuhan batas kuota maksimal 3 hari kerja per bulan, deteksi bentrok pengajuan antar-rekan satu departemen, dan alur persetujuan manajerial.
 
-Tujuan: Memverifikasi pencatatan jam kerja sesuai zona waktu lokal (WIB), pencatatan briefing, dan jejak audit koreksi.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-3.1** | **Pencatatan Sesi Briefing** | **Positif:** Input briefing pagi operasional toko | 1. Buka menu **Presensi**.<br>2. Klik tombol **Catat Sesi Briefing**.<br>3. Masukkan Topik: `K3 Pengangkatan Kaca Lembaran`, Pembicara: `Kepala Toko`, Jumlah Hadir: `8`.<br>4. Klik **Simpan Sesi Briefing**. | Sesi briefing tersimpan, tampil pada riwayat sesi hari ini lengkap dengan tanggal dan identitas pemateri. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-3.2** | **Koreksi Presensi Manual** | **Positif:** Supervisor mengoreksi presensi karyawan lupa tap | 1. Buka tab **Presensi Harian**.<br>2. Klik aksi **Koreksi** pada salah satu baris karyawan.<br>3. Masukkan Jam Masuk: `08:00`, Jam Keluar: `17:00`, Status: `PRESENT`, Catatan: `Mesin fingerprint offline, diverifikasi hadir`.<br>4. Simpan. | Status jam kerja terbarui, dan alasan koreksi tercatat rapi pada audit log. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-3.3** | **Validasi Tanggal & Jam WIB** | **Positif:** Jam presensi menggunakan Waktu Indonesia Barat | 1. Periksa tanggal default dan jam saat membuka menu presensi. | Tanggal dan jam default otomatis menampilkan kalender WIB (Asia/Jakarta), bukan jam UTC internasional (tidak bergeser selisih 7 jam). | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-
----
-
-### MODUL 4: PENGAJUAN & PENGELOLAAN CUTI KARYAWAN
-
-Tujuan: Menguji kepatuhan batas kuota 3 hari cuti, jendela pengajuan resmi (tgl 1 s.d. 3), dan deteksi bentrok antar-rekan satu bagian.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-4.1** | **Batas Maksimal Kuota Cuti** | **Negatif:** Mengajukan lebih dari 3 hari dalam 1 bulan | 1. Buka menu **Cuti** &rarr; klik **Ajukan Cuti Baru**.<br>2. Pilih karyawan: `Budi UAT`.<br>3. Pilih 4 tanggal cuti dalam bulan yang sama.<br>4. Coba simpan formulir. | Sistem menampilkan peringatan penolakan: *"Maksimal cuti adalah 3 hari per bulan"*, dan formulir tidak dapat dikirim. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-4.2** | **Validasi Jendela Pengajuan** | **Negatif:** Mengajukan cuti di luar jendela tanggal 1-3 | 1. Klik **Ajukan Cuti Baru**.<br>2. Pilih tanggal cuti untuk bulan depan pada tanggal simulasi di luar tanggal 1 bulan lalu s.d. tanggal 3 bulan target cuti.<br>3. Simpan. | Sistem menolak pengajuan dengan keterangan bahwa jendela pengajuan cuti resmi belum dibuka atau telah ditutup. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-4.3** | **Deteksi Konflik Departemen** | **Positif:** Dua karyawan satu bagian mengajukan tanggal sama | 1. Karyawan A (Bagian Potong Kaca) telah disetujui cuti pada tanggal `15 Desember 2026`.<br>2. Ajukan cuti untuk Karyawan B (juga Bagian Potong Kaca) pada tanggal yang sama `15 Desember 2026`.<br>3. Kirim pengajuan. | Sistem **TIDAK** menyetujui otomatis. Pengajuan dialihkan ke status **PENDING (Ada Potensi Konflik)** agar dievaluasi manual oleh Kepala Toko. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-4.4** | **Persetujuan Cuti Kepala Toko** | **Positif:** Kepala toko menyetujui pengajuan pending | 1. Login sebagai Kepala Toko.<br>2. Buka daftar pengajuan cuti berstatus PENDING.<br>3. Klik tombol **Setujui Cuti**.<br>4. Konfirmasi. | Status pengajuan cuti berubah menjadi **APPROVED** dan kuota cuti karyawan berkurang sesuai tanggal cuti. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-LEV-01** | Karyawan / HRD / Manager | Login sebagai **HRD Demo** atau **Manager La Tansa** | 1. Buka menu **Cuti** (`/leave`).<br>2. Klik tombol **Ajukan Cuti Staf**.<br>3. Pilih karyawan, isi 1 atau 2 tanggal cuti, isi alasan: `Keperluan keluarga di kampung`.<br>4. Klik **Ajukan Permohonan Cuti**. | Permohonan cuti berhasil terdaftar dengan status awal **PENDING** dan kuota cuti staf tervalidasi. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-LEV-02** | HRD / Manager | Berada di modal ajukan cuti | 1. Coba pilih 4 tanggal cuti dalam bulan yang sama untuk karyawan yang sama.<br>2. Coba kirim formulir. | Sistem menolak pengajuan dengan pesan validasi tegas: *"Maksimal cuti adalah 3 hari per bulan (SOP KUK)"*. Formulir tidak dapat disimpan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-LEV-03** | HRD / Manager | Karyawan A (bagian potong kaca) cuti tgl 20 | 1. Ajukan cuti untuk Karyawan B (juga bagian potong kaca) pada tanggal yang sama (tgl 20).<br>2. Kirim formulir cuti. | Sistem mendeteksi potensi bentrok staf satu departemen; pengajuan dialihkan ke status evaluasi khusus agar dievaluasi langsung oleh Kepala Toko. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-LEV-04** | Kepala Toko / Manager | Login sebagai **Manager La Tansa** | 1. Cari pengajuan cuti yang berstatus `PENDING`.<br>2. Klik tombol **Setujui Cuti**.<br>3. Konfirmasi persetujuan. | Status permohonan cuti berubah menjadi **APPROVED** lengkap dengan atribusi identitas manajer yang menyetujui. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-### MODUL 5: TIP POTONG KACA & VERIFIKASI KASIR
+### D. TIP POTONG KACA (GLASS TIPS & CASHIER VERIFICATION)
+**Tujuan:** Memvalidasi pengajuan mandiri kiosk publik, validasi master tarif kaca, penerapan formula baku 3% eksak tanpa pembulatan Rp1.000, penolakan tipe kaca tanpa tarif master, verifikasi & penolakan nota oleh kasir, serta integrasi rekapan tip payroll.
 
-Tujuan: Menguji kalkulasi otomatis luas kaca ($m^2$), penerapan tarif, serta memastikan tip ditolak/pending tidak pernah masuk payroll.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-5.1** | **Kalkulasi Luas & Nominal Tip** | **Positif:** Menginput nota potong kaca standar | 1. Buka menu **Tip Potong Kaca**.<br>2. Pilih Jenis Kaca: `Bening 5mm`, Panjang: `100 cm`, Lebar: `200 cm` (Luas = 2.00 $m^2$), Jumlah: `2 lembar`.<br>3. Periksa perhitungan sistem. | Sistem menghitung luas total = 4.00 $m^2$. Nominal tip dihitung otomatis berdasarkan tarif per $m^2$ yang aktif. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-5.2** | **Penolakan Metode Belum Disahkan** | **Negatif:** Memilih metode perhitungan berstatus draft | 1. Buka formulir input nota tip.<br>2. Coba pilih metode kalkulasi yang berstatus draft (misal Size Range / Hybrid tanpa tarif resmi). | Sistem membatasi hanya metode resmi yang dapat disimpan; metode pending menghasilkan pesan penolakan yang informatif. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-5.3** | **Verifikasi Wajib oleh Kasir** | **Positif:** Kasir menyetujui nota yang valid | 1. Login sebagai Kasir.<br>2. Buka tab **Daftar Nota** &rarr; cari nota berstatus `PENDING`.<br>3. Klik **Verifikasi Nota** &rarr; periksa nominal &rarr; klik **Setujui & Verifikasi**. | Status nota berubah menjadi **VERIFIED** lengkap dengan nama kasir pemeriksa dan waktu verifikasi. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-5.4** | **Pengecualian Tip Ditolak dari Payroll** | **Negatif:** Nota ditolak Kasir dilarang masuk penggajian | 1. Kasir memilih nota cacat &rarr; klik **Tolak Nota** dengan alasan: `Ukuran nota tidak sesuai fisik kaca`.<br>2. Buka tab **Rekap Tip Payroll**.<br>3. Periksa apakah nota tersebut masuk ke rekap gaji tukang potong. | Nota berstatus `REJECTED` **SAMA SEKALI TIDAK MUNCUL** pada akumulasi tip payroll tukang potong kaca terkait. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-
----
-
-### MODUL 6: PENGELOLAAN & PEMINJAMAN ARMADA
-
-Tujuan: Memvalidasi pencegahan bentrok jadwal pinjam dan penguncian armada jika petugas menyatakan tidak layak jalan.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-6.1** | **Booking Armada Operasional** | **Positif:** Mengajukan peminjaman truk pengiriman | 1. Buka menu **Armada** &rarr; klik **Pinjam Armada**.<br>2. Pilih Truk Engkel La Tansa, Driver: `Pak Sopir (Demo)`.<br>3. Waktu Berangkat: Besok jam 08:00, Waktu Kembali: Besok jam 12:00.<br>4. Tujuan: `Pengiriman Kaca Proyek Anyer`.<br>5. Simpan. | Pengajuan peminjaman tersimpan dan masuk ke daftar tunggu persetujuan pengelola armada. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-6.2** | **Pencegahan Jadwal Bentrok** | **Negatif:** Booking kendaraan yang sama di jam yang sama | 1. Ajukan peminjaman kedua untuk Truk Engkel yang sama.<br>2. Masukkan rentang jam yang bertabrakan (contoh: Besok jam 10:00 s.d. 14:00).<br>3. Coba kirim. | Sistem menolak pengajuan dengan pesan bahwa kendaraan telah dipesan pada rentang jam tersebut (Exclusion overlap guard). | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-6.3** | **Pengembalian Layak Jalan (FIT)** | **Positif:** Petugas menyatakan kendaraan prima | 1. Pada daftar armada dipinjam, klik **Proses Kembali**.<br>2. Masukkan KM Akhir: `45200`, BBM: `Penuh`, Kebersihan: `5`.<br>3. Pada pilihan **Kelaikan Operasional Petugas**, pilih **FIT (Layak & Siap Beroperasi)**.<br>4. Simpan. | Status armada seketika kembali menjadi **AVAILABLE** dan langsung siap dipinjam untuk tugas berikutnya. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-6.4** | **Pengembalian Rusak / Servis (NEEDS_MAINTENANCE)** | **Negatif:** Petugas menyatakan tidak layak jalan | 1. Pada armada lain yang kembali, klik **Proses Kembali**.<br>2. Isi catatan: `Ban belakang sobek dan rem bunyi berdecit`.<br>3. Pada **Kelaikan Operasional Petugas**, pilih **NEEDS_MAINTENANCE (Perlu Servis / Perbaikan)**.<br>4. Simpan.<br>5. Coba lakukan peminjaman baru untuk kendaraan ini. | Status armada seketika berubah menjadi **MAINTENANCE**. Kendaraan **DIBLOKIR** dari daftar pilihan peminjaman baru demi keselamatan. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-TIP-01** | Pemotong (Cutter) | Buka halaman Kiosk Publik mandiri (`/public/glass-tip`) | 1. Masukkan Kode Karyawan: `EMP-LATANSA-001`, PIN: `123456`.<br>2. Pilih Tipe Kaca: `Bening 5mm` (Tarif master Rp120.000/m²).<br>3. Masukkan Panjang: `150 cm`, Tinggi: `80 cm`, Jumlah: `2 lembar`.<br>4. Periksa estimasi angka yang muncul. | Luas kaca terhitung $2.40\text{ m}^2$. Nilai dasar kaca terhitung $2.40 \times Rp120.000 = Rp288.000$. Estimasi tip terhitung **tepat 3% = Rp8.640** (EKSAK, tanpa pembulatan Rp1.000 ke Rp9.000). | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-TIP-02** | Pemotong (Cutter) | Berada di halaman `/public/glass-tip` | 1. Klik tombol **Kirim Pengajuan Nota Potong Kaca**.<br>2. Amati layar konfirmasi tanda terima digital. | Muncul layar sukses dengan **Nomor Referensi Nota** (contoh: `TIP-0000-XXXXXX`), rincian dimensi, nilai jual, estimasi tip 3%, dan tanggal pengajuan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-TIP-03** | Pemotong (Cutter) | Berada di halaman `/public/glass-tip` | 1. Pilih tipe kaca khusus yang belum memiliki konfigurasi tarif master aktif.<br>2. Amati indikator estimasi tip dan coba submit. | Sistem menampilkan peringatan *(Tipe kaca ini belum memiliki tarif master)*, estimasi tip menampilkan `-`, dan pengajuan ditolak demi integritas keuangan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-TIP-04** | Kasir Toko | Login sebagai **Kasir Demo (UAT)** | 1. Buka menu **Tip Potong Kaca** (`/glass-tips`).<br>2. Periksa banner notice resmi di atas tabel.<br>3. Cari nota berstatus `PENDING` yang diajukan pemotong.<br>4. Klik tombol **Verifikasi**.<br>5. Periksa rincian fisik kaca, lalu klik **Simpan Verifikasi**. | Banner menampilkan formula resmi 3% tanpa pembulatan Rp1.000. Status nota berubah menjadi **VERIFIED** lengkap dengan nama kasir pemeriksa dan timestamp verifikasi. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-TIP-05** | Kasir Toko | Login sebagai **Kasir Demo (UAT)** | 1. Pilih nota yang tidak sesuai fisik kaca (misal ukuran salah).<br>2. Pada modal verifikasi, pilih Keputusan: `TOLAK`.<br>3. Masukkan alasan: `Ukuran fisik kaca tidak cocok dengan nota`.<br>4. Simpan keputusan. | Status nota berubah menjadi **REJECTED** dan alasan penolakan tersimpan jelas. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-TIP-06** | Kasir / Finance | Berada di halaman `/glass-tips` | 1. Buka tab **Rekap Tip Payroll**.<br>2. Periksa kolom akumulasi tip terverifikasi vs pending.<br>3. Pastikan nota yang berstatus `REJECTED` atau `PENDING` tidak masuk ke total siap payroll. | Total tip yang siap ditarik ke payroll **HANYA** menjumlahkan nota yang berstatus `VERIFIED`. Nota ditolak atau pending terisolasi 100%. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-### MODUL 7: PELANGGARAN & SURAT PERINGATAN (SP)
+### E. OPERASIONAL & RESERVASI ARMADA (FLEET MANAGEMENT)
+**Tujuan:** Memvalidasi pengajuan peminjaman armada, otorisasi persetujuan manajerial, pencegahan jadwal bentrok (*schedule overlap*), dan pemeriksaan kelaikan kendaraan saat kembali (*FIT* vs *NEEDS_MAINTENANCE*).
 
-Tujuan: Memverifikasi pencatatan poin pelanggaran dan memastikan penerbitan SP tidak memotong gaji secara otomatis.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-7.1** | **Catat Poin Pelanggaran** | **Positif:** Input insiden indisipliner staf | 1. Buka menu **Pelanggaran** &rarr; klik **Catat Pelanggaran**.<br>2. Pilih Karyawan: `Budi UAT`, Tanggal: Hari ini, Poin: `5`, Keterangan: `Tidak memakai kacamata pelindung saat potong kaca`.<br>3. Simpan. | Pelanggaran tercatat dalam riwayat kedisiplinan unit. Akumulasi poin bertambah secara transparan. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-7.2** | **Penerbitan Surat Peringatan (SP)** | **Positif:** Menerbitkan SP dengan masa berlaku referensi | 1. Klik tombol **Terbitkan Surat Peringatan (SP)**.<br>2. Pilih Karyawan, Tingkat: `SP 1`, Alasan: `Akumulasi kelalaian K3`.<br>3. Periksa catatan informasi masa berlaku pada modal formulir.<br>4. Simpan. | SP berhasil diterbitkan. Tercantum catatan jelas: *"Referensi Berlaku s.d. [Tanggal] (Draft 6 Bln - Tidak memicu potongan gaji otomatis)"*. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-7.3** | **Non-Pemotongan Upah Otomatis** | **Negatif:** Memastikan SP tidak mengurangi gaji tanpa dasar keputusan | 1. Buka menu **Payroll** untuk karyawan yang baru saja menerima SP.<br>2. Periksa rincian komponen gaji. | Tidak ada potongan denda SP misterius atau tidak sah pada slip gaji. Komponen gaji murni sesuai data riil. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-
----
-
-### MODUL 8: PENGGAJIAN (PAYROLL) & CETAK SLIP GAJI
-
-Tujuan: Menguji pembuatan draft gaji, integrasi tip potong kaca, penguncian status FINALIZED, dan imutabilitas slip gaji.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-8.1** | **Pembuatan Periode Gaji Baru** | **Positif:** Membuka periode gaji bulan berjalan | 1. Buka menu **Payroll** &rarr; klik **Buat Periode Penggajian**.<br>2. Masukkan Nama: `Gaji Desember 2026`, Rentang: `01/12/2026 s.d. 31/12/2026`, Tgl Bayar: `01/01/2027`.<br>3. Simpan. | Periode baru terbentuk dengan status **DRAFT**. Daftar karyawan unit otomatis dimuat ke lembar kerja. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-8.2** | **Penarikan Tip Potong Kaca** | **Positif:** Tip terverifikasi masuk ke rincian gaji cutter | 1. Periksa rincian gaji karyawan tukang potong kaca di periode DRAFT.<br>2. Lihat komponen `Tip Potong Kaca`. | Nominal tip terverifikasi dari modul potong kaca masuk secara presisi ke kolom pendapatan tambahan tukang potong. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-8.3** | **Finalisasi Periode Gaji** | **Positif:** Mengunci periode gaji yang telah disetujui | 1. Login sebagai Pimpinan / Kepala Toko.<br>2. Klik tombol **Finalisasi Periode Penggajian**.<br>3. Baca kotak dialog konfirmasi penguncian permanen &rarr; ketik konfirmasi &rarr; klik **Kunci Payroll**. | Status periode berubah menjadi **FINALIZED**. Seluruh angka terkunci dan tidak dapat diubah lagi oleh siapa pun. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-8.4** | **Imutabilitas Cetak Slip Gaji** | **Positif:** Mencetak slip gaji dari snapshot final | 1. Pada periode FINALIZED, klik tombol **Lihat Slip Gaji** pada salah satu staf.<br>2. Periksa rincian slip & klik tombol **Cetak / PDF**.<br>3. Lakukan simulasi perubahan master gaji di menu karyawan. Buka kembali slip gaji tadi. | Tampilan slip gaji rapi berformat cetak resmi KUK. Angka pada slip **TETAP SAMA** dengan saat difinalisasi (membaca snapshot permanen). | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-FLT-01** | Driver / Kepala Toko | Login sebagai **Driver Demo** atau **Manager La Tansa** | 1. Buka menu **Armada** (`/fleet`).<br>2. Klik tombol **Ajukan Pinjam Armada**.<br>3. Pilih kendaraan: Suzuki Carry Pick-Up, Peminjam: `Pak Joko`, No HP: `081234567888`.<br>4. Waktu: Besok jam 08:00 s.d. 12:00, Tujuan: `Kirim material semen ke Anyer`.<br>5. Klik **Kirim Pengajuan**. | Pengajuan peminjaman tersimpan dan masuk ke daftar antrean reservasi unit aktif. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-FLT-02** | Driver / Kepala Toko | Berada di halaman `/fleet` | 1. Ajukan peminjaman kedua untuk Suzuki Carry Pick-Up yang sama.<br>2. Masukkan rentang jam yang bertabrakan (misal besok jam 10:00 s.d. 14:00).<br>3. Coba kirim formulir. | Sistem menolak pengajuan dengan peringatan bahwa jadwal kendaraan bentrok dengan reservasi yang telah ada. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-FLT-03** | Supervisor / Kepala Toko | Login sebagai **Manager La Tansa** | 1. Pada daftar armada yang dipinjam, klik **Proses Kembali**.<br>2. Masukkan KM Akhir, kondisi BBM, kebersihan.<br>3. Pada **Kelaikan Operasional Petugas**, pilih **FIT (Layak & Siap Beroperasi)**.<br>4. Simpan. | Status kendaraan kembali menjadi **AVAILABLE (Tersedia)** dan siap dipinjam untuk tugas berikutnya. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-FLT-04** | Supervisor / Kepala Toko | Berada di halaman `/fleet` | 1. Pada armada lain yang kembali, klik **Proses Kembali**.<br>2. Pada **Kelaikan Operasional Petugas**, pilih **NEEDS_MAINTENANCE (Perlu Servis / Rusak)**.<br>3. Simpan.<br>4. Coba ajukan peminjaman baru untuk mobil ini. | Status kendaraan berubah menjadi **MAINTENANCE (Dalam Perbaikan)** dan seketika **DIBLOKIR** dari daftar pilihan peminjaman baru demi keselamatan kerja. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-### MODUL 9: PENGELUARAN KAS (PETTY CASH) & OTORISASI
+### F. KEDISIPLINAN, PELANGGARAN & SURAT PERINGATAN (VIOLATIONS & SP)
+**Tujuan:** Memvalidasi pencatatan poin pelanggaran, simulasi administratif SP berjangka 6 bulan bertanda draft, dan memastikan tidak ada pemotongan upah otomatis tanpa dasar kebijakan.
 
-Tujuan: Menguji pencatatan nota pengeluaran operasional dan memastikan dana kas tidak dapat dicairkan tanpa persetujuan manajerial.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-9.1** | **Pencatatan Kas Awal (Status PENDING)** | **Positif:** Kasir mencatat biaya operasional rutin | 1. Buka menu **Pengeluaran Kas** &rarr; klik **Catat Pengeluaran**.<br>2. Kategori: `OPERATIONAL`, Nominal: `Rp 150.000`, Penerima: `Toko Sebelah`, Keperluan: `Beli ATK nota & lakban packing`.<br>3. Simpan. | Pengeluaran tersimpan dengan status awal **PENDING**. Tidak ada auto-approval otomatis tanpa persetujuan berwenang. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-9.2** | **Pencatatan Kas Nominal Besar** | **Positif:** Pengeluaran besar tetap berstatus PENDING | 1. Klik **Catat Pengeluaran**.<br>2. Kategori: `MAINTENANCE`, Nominal: `Rp 2.500.000`, Keperluan: `Ganti ban truk pengiriman`.<br>3. Simpan. | Pengeluaran tercatat rapi dengan status **PENDING** menunggu persetujuan otorisasi pimpinan unit. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-9.3** | **Otorisasi Persetujuan Kepala Toko** | **Positif:** Pejabat berwenang menyetujui pengeluaran | 1. Login sebagai Kepala Toko / Pimpinan.<br>2. Pada baris pengeluaran kas PENDING, klik tombol **Setujui**.<br>3. Konfirmasi. | Status pengeluaran berubah menjadi **APPROVED** dan nominal diakui masuk ke rekap kas keluar unit. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-9.4** | **Penolakan Pengeluaran Tidak Sah** | **Negatif:** Menolak pengeluaran tanpa bukti/nota valid | 1. Pada pengeluaran yang meragukan, klik tombol **Tolak**.<br>2. Masukkan alasan penolakan: `Nota fisik tidak terlampir atau buram`.<br>3. Konfirmasi penolakan. | Status berubah menjadi **REJECTED**, alasan tercatat, dan dana kas tidak dicairkan. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-VIO-01** | Supervisor / HRD | Login sebagai **HRD Demo** atau **Supervisor Demo** | 1. Buka menu **Pelanggaran** (`/violations`).<br>2. Klik tombol **Catat Pelanggaran**.<br>3. Pilih karyawan, Tanggal: Hari ini, Poin: `5`, Keterangan: `Tidak mengenakan kacamata pelindung saat potong kaca`.<br>4. Simpan. | Pelanggaran tercatat pada riwayat kedisiplinan dan poin pelanggaran karyawan bertambah secara transparan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-VIO-02** | HRD / Kepala Toko | Login sebagai **HRD Demo** atau **Manager La Tansa** | 1. Klik tombol **Terbitkan Surat Peringatan (SP)**.<br>2. Pilih Karyawan, Tingkat: `SP 1`, Alasan: `Akumulasi pelanggaran K3`.<br>3. Periksa informasi masa berlaku dan simpan. | SP berhasil diterbitkan berlabel `DRAFT SIMULASI ADMINISTRATIF (Masa Berlaku 6 Bulan)` sesuai status kebijakan terbuka yang belum disahkan permanen. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-VIO-03** | HRD / Kepala Toko | Karyawan baru saja menerima SP | 1. Buka menu **Payroll** (`/payroll`).<br>2. Periksa rincian slip gaji karyawan yang menerima SP tersebut. | **TIDAK ADA** pemotongan gaji misterius atau denda otomatis akibat SP. Komponen pemotongan gaji tetap murni dan tidak ada pemotongan sepihak (`sp_deductions === 0`). | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-### MODUL 10: PENGATURAN SISTEM & ADMINISTRASI AKUN
+### G. PENGGAJIAN & CETAK SLIP GAJI (PAYROLL & HISTORICAL PAYSLIPS)
+**Tujuan:** Memvalidasi pembuatan periode gaji, integrasi tip kaca terverifikasi, finalisasi penguncian status FINALIZED, dan imutabilitas cetak slip gaji.
 
-Tujuan: Memvalidasi pengelolaan akun pengguna, perubahan hak akses peran, serta perlindungan akun Super Admin.
-
-| Kode UAT | Fungsi yang Diuji | Skenario Pengujian | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Catatan & Bukti |
-| :---: | :--- | :--- | :--- | :--- | :---: | :--- |
-| **UAT-10.1** | **Ubah Hak Akses / Role Pengguna** | **Positif:** Mengubah penugasan peran staf | 1. Login sebagai Super Admin &rarr; buka menu **Pengaturan** &rarr; tab **Pengguna**.<br>2. Pilih salah satu akun contoh &rarr; klik **Ubah Role**.<br>3. Ganti peran dari `KASIR` menjadi `SUPERVISOR`.<br>4. Simpan. | Peran pengguna berhasil diperbarui. Pengguna mendapatkan hak akses baru saat sesi berikutnya. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-10.2** | **Proteksi Akun Super Admin Terakhir** | **Negatif:** Mencegah penurunan pangkat Super Admin terakhir | 1. Coba turunkan pangkat akun Super Admin satu-satunya menjadi peran biasa. | Sistem menolak aksi dengan peringatan: *"Akun Super Admin terakhir tidak boleh diturunkan atau dihapus demi keamanan sistem"*. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-| **UAT-10.3** | **Kontrol Mode Pratinjau (Preview Mode)** | **Positif:** Pimpinan dapat mengaktifkan demo simulasi | 1. Buka tab **Mode Pratinjau** di menu Pengaturan.<br>2. Periksa status sakelar demo.<br>3. Jika diaktifkan, amati banner simulasi pada aplikasi. | Jika aktif, sistem menampilkan banner: `[Mode Simulasi Aktif]`. Di lingkungan produksi asli, sakelar ini otomatis terkunci demi integritas data. | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
-
----
-
-## 4. DAFTAR ATURAN BISNIS YANG MEMERLUKAN KEPUTUSAN RESMI PIMPINAN
-
-Bagian ini memuat daftar kebijakan operasional yang saat ini telah **diamankan dari asumsi sepihak sistem**. Pimpinan KUK diminta memberikan keputusan formal untuk penetapan parameter final:
-
-| No | Nama Kebijakan Operasional | Kondisi Implementasi RC Saat Ini | Pilihan Keputusan Pimpinan | Keputusan Final Disetujui | Paraf |
-| :---: | :--- | :--- | :--- | :--- | :---: |
-| **1** | **Ambang Batas Pengeluaran Kas (Petty Cash)** | Seluruh pengeluaran berstatus `PENDING` tanpa ada auto-approval otomatis. | [ ] Semua nominal wajib persetujuan pimpinan<br>[ ] Auto-approve s.d. Rp _________________<br>[ ] Kepala Toko berwenang s.d. Rp _________ | | |
-| **2** | **Masa Berlaku Surat Peringatan (SP)** | Berlaku 6 bulan secara administratif tanpa sanksi potong gaji otomatis. | [ ] Tetap 6 bulan sesuai UU Ketenagakerjaan<br>[ ] Ditentukan per kasus oleh pimpinan<br>[ ] Lainnya: ___________________________ | | |
-| **3** | **Keterlambatan Masuk Kerja** | Menit keterlambatan dicatat faktual tanpa pemotongan uang otomatis. | [ ] Toleransi _____ menit, denda Rp ________<br>[ ] Evaluasi kumulatif bulanan via SP<br>[ ] Potong tunjangan kehadiran proporsional | | |
-| **4** | **Lembur & Insentif Kerja** | Jam lembur dicatat faktual, nominal upah diisi manual/disetujui. | [ ] Tarif lembur flat Rp ____________ / jam<br>[ ] Perhitungan standar Depnaker (1.5x / 2x)<br>[ ] Lainnya: ___________________________ | | |
-| **5** | **Servis Berkala & Odometer Armada** | Nilai KM dicatat pada form kembali; status servis ditentukan petugas. | [ ] Servis rutin wajib setiap __________ KM<br>[ ] Servis berkala setiap _________ bulan<br>[ ] Berdasarkan rekomendasi montir bengkel | | |
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-PAY-01** | Finance / Kepala Toko | Login sebagai **Finance Demo** atau **Manager La Tansa** | 1. Buka menu **Payroll** (`/payroll`).<br>2. Periksa daftar periode penggajian yang ada. | Daftar periode penggajian unit tampil lengkap dengan nama periode, rentang tanggal, status (`DRAFT` / `FINALIZED`), dan total beban payroll. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-PAY-02** | Finance / Kepala Toko | Berada di halaman `/payroll` | 1. Buka salah satu slip gaji tukang potong kaca pada periode DRAFT.<br>2. Periksa komponen pendapatan `Tip Potong Kaca`. | Nominal tip potong kaca terverifikasi dari modul kaca ditarik secara presisi ke kolom penambah penghasilan tukang potong. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-PAY-03** | Kepala Toko / Pimpinan | Login sebagai **Manager La Tansa** | 1. Pada periode DRAFT yang sudah disetujui, klik **Finalisasi Penggajian**.<br>2. Baca modal konfirmasi in-app dan konfirmasikan. | Status periode gaji terkunci permanen menjadi **FINALIZED**. Angka slip gaji tidak dapat diubah lagi oleh siapa pun. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-PAY-04** | Finance / Pimpinan | Berada di periode FINALIZED | 1. Klik tombol **Lihat Slip Gaji** &rarr; klik **Cetak Slip Resmi**.<br>2. Lakukan simulasi perubahan data master gaji karyawan di menu Karyawan.<br>3. Buka kembali slip gaji periode FINALIZED tadi. | Slip gaji tercetak rapi dengan Kop Surat KUK. Angka pada slip **TETAP SAMA PERSIS** karena membaca data snapshot permanen yang kebal dari perubahan master data. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-## 5. FORMULIR PENCATATAN TEMUAN (DEFECT / ISSUE LOG)
+### H. KAS TOKO & OTORISASI PENGELUARAN (PETTY CASH MANAGEMENT)
+**Tujuan:** Memvalidasi pencatatan kas keluar oleh kasir (status PENDING), otorisasi persetujuan oleh Kepala Toko, serta pencatatan alasan penolakan kas.
 
-Gunakan tabel di bawah ini jika penguji menemukan kendala atau kegagalan saat menjalankan skenario di atas:
-
-| No | Kode Skenario UAT | Modul / Halaman | Deskripsi Masalah yang Ditemukan | Bukti (Screenshot / Pesan Error) | Tingkat Keparahan (Critical / Major / Minor / Enh.) | Status Penyelesaian | Paraf Penguji |
-| :---: | :---: | :---: | :--- | :--- | :---: | :---: | :---: |
-| 1 | | | | | | [ ] Open [ ] Resolved | |
-| 2 | | | | | | [ ] Open [ ] Resolved | |
-| 3 | | | | | | [ ] Open [ ] Resolved | |
-| 4 | | | | | | [ ] Open [ ] Resolved | |
-| 5 | | | | | | [ ] Open [ ] Resolved | |
-| 6 | | | | | | [ ] Open [ ] Resolved | |
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-FIN-01** | Kasir Toko | Login sebagai **Kasir Demo (UAT)** | 1. Buka menu **Kas Toko** (`/finance`).<br>2. Klik tombol **Catat Pengeluaran Kas**.<br>3. Penerima: `Toko ATK Makmur`, Nominal: `Rp 75.000`, Keperluan: `Beli 5 Roll Kertas Struk Kasir Thermal`.<br>4. Simpan formulir. | Pengeluaran kas tersimpan dengan status awal **PENDING**. Kasir tidak memiliki tombol "Setujui" sendiri (larangan otorisasi mandiri). | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-FIN-02** | Kepala Toko / Finance | Login sebagai **Manager La Tansa** atau **Finance Demo** | 1. Buka menu `/finance`.<br>2. Temukan pengeluaran kas `Toko ATK Makmur` berstatus PENDING.<br>3. Klik tombol **Setujui** &rarr; konfirmasi. | Status pengeluaran berubah menjadi **APPROVED** dan tercatat nama pejabat yang menyetujui. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-FIN-03** | Kepala Toko / Finance | Berada di menu `/finance` | 1. Pada transaksi kas yang tidak valid (misal tanpa nota fisik), klik tombol **Tolak**.<br>2. Masukkan alasan: `Nota fisik tidak terlampir atau buram`.<br>3. Konfirmasi penolakan. | Status berubah menjadi **REJECTED**, alasan penolakan tersimpan di sistem, dan dana kas tidak dicairkan. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-## 6. CHECKLIST PENERIMAAN AKHIR (SIGN-OFF GATE)
+### I. ISOLASI UNIT & PEMBATASAN WEWENANG (UNIT ISOLATION & RBAC)
+**Tujuan:** Memvalidasi pemisahan mutlak data antara TB KUK La Tansa dan KUK Palen serta penguncian antarmuka dashboard sesuai wewenang peran kerja.
 
-Sebelum sistem diizinkan masuk ke tahap deployment basis data dan rilis operasional penuh, seluruh kriteria verifikasi berikut wajib terpenuhi:
-
-- [ ] **Data Terpisah Sempurna:** Seluruh data transaksi, karyawan, dan kas La Tansa tidak tercampur dengan KUK Palen.
-- [ ] **Hak Akses Terkunci Rapi:** Staf kasir, tukang potong, dan pengemudi hanya dapat mengakses wewenangnya masing-masing.
-- [ ] **Kepatuhan Cuti & Presensi:** Batas 3 hari cuti, jendela pengajuan tgl 1-3, dan kalender WIB berjalan sesuai kesepakatan.
-- [ ] **Verifikasi Tip Terjamin:** Tidak ada tip potong kaca yang lolos ke rekap gaji tanpa tanda tangan verifikasi kasir.
-- [ ] **Keselamatan Armada Terlindungi:** Peminjaman tidak bisa bentrok dan kendaraan rusak langsung diblokir ke status Maintenance.
-- [ ] **Payroll & Slip Gaji Terkunci:** Periode gaji yang difinalisasi tidak dapat diedit ulang dan cetak slip konsisten.
-- [ ] **Zero Critical & Zero Major Defect:** Tidak ada temuan berstatus Critical atau Major yang belum terselesaikan.
+| Kode UAT | Peran Penguji | Prasyarat | Langkah-Langkah Pengujian | Hasil yang Diharapkan | Hasil Aktual | Status | Catatan Penguji |
+| :---: | :---: | :--- | :--- | :--- | :--- | :---: | :--- |
+| **UAT-ISO-01** | Pimpinan / Direksi | Login sebagai **Pimpinan Demo (UAT)** | 1. Pada pemilih unit di header atas, pilih **TB KUK La Tansa**.<br>2. Buka menu Karyawan dan Armada.<br>3. Ganti pemilih unit ke **KUK Palen**.<br>4. Buka kembali menu Karyawan dan Armada. | Data karyawan dan armada La Tansa **TIDAK MUNCUL** di KUK Palen, dan sebaliknya. Terjadi pemisahan mutlak 100% (Zero Cross-Unit Leakage). | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-ISO-02** | Admin Unit / Manager | Login sebagai **Manager La Tansa** | 1. Periksa pemilih unit di header atas.<br>2. Coba beralih ke unit KUK Palen. | Dropdown terkunci hanya untuk **TB KUK La Tansa**; opsi untuk melihat atau memanipulasi unit KUK Palen tidak tersedia. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-ISO-03** | Kasir Toko | Login sebagai **Kasir Demo (UAT)** | 1. Buka halaman `/dashboard`.<br>2. Amati kartu-kartu statistik operasional yang muncul. | Kasir **HANYA** melihat kartu Kas Kecil (Petty Cash) dan Tip Kaca Pending. Kartu Karyawan, Payroll, Armada, dan SP disembunyikan total. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
+| **UAT-ISO-04** | Cutter / Driver | Login sebagai **Cutter Demo** atau **Driver Demo** | 1. Coba ketik rute sensitif di address bar peramban (contoh: `http://localhost:3000/payroll` atau `/settings`). | Akses seketika diblokir oleh Route Guard dengan banner resmi: *"Akses Ditolak: Anda tidak memiliki wewenang untuk membuka modul ini"*. | | [ ] PASS<br>[ ] FAIL<br>[ ] NOT TESTED | |
 
 ---
 
-## 7. LEMBAR PENGESAHAN PENERIMAAN BISNIS (ACCEPTANCE SIGN-OFF)
+## 4. FORMULIR PENCATATAN TEMUAN (DEFECT / ISSUE LOGGING TEMPLATE)
 
-Dengan menandatangani dokumen ini, para pihak menyatakan bahwa **KUK Management System v3.1.0 (Release Candidate)** telah diuji secara langsung melalui skenario UAT di atas, dan memberikan rekomendasi sebagai berikut:
+Gunakan tabel di bawah ini untuk mencatat kendala, bug, atau ketidaksesuaian yang ditemukan selama pelaksanaan UAT:
 
-*(Pilih salah satu)*
-- [ ] **DITERIMA PENUH (ACCEPTED)** — Sistem siap dilanjutkan ke tahap deployment basis data dan rilis kerja.
-- [ ] **DITERIMA DENGAN CATATAN (ACCEPTED WITH MINOR NOTES)** — Sistem diterima, perbaikan minor diselesaikan bertahap.
-- [ ] **DITOLAK / DITUNDA (REJECTED / BLOCKED)** — Terdapat temuan Major/Critical yang wajib diperbaiki terlebih dahulu.
+| No | Kode Skenario | Modul / Halaman | Peran Penguji | Deskripsi Masalah yang Terjadi | Bukti (Screenshot / Pesan Error) | Tingkat Keparahan (Critical/Major/Minor) | Tindak Lanjut Tim Teknis | Paraf Penguji |
+|:---:|:---:|:---:|:---:|:---|:---|:---:|:---|:---:|
+| 1 | | | | | | | | |
+| 2 | | | | | | | | |
+| 3 | | | | | | | | |
+| 4 | | | | | | | | |
+| 5 | | | | | | | | |
+
+---
+
+## 5. LEMBAR PENGESAHAN HASIL PENGUJIAN PENERIMAAN BISNIS (BUSINESS UAT SIGN-OFF)
+
+Berdasarkan seluruh hasil pengujian yang telah dilaksanakan secara langsung oleh perwakilan staf operasional dan pimpinan unit pada lingkungan simulasi demo terisolasi:
+
+### REKOMENDASI KELAYAKAN OPERASIONAL:
+*(Beri tanda silang `[X]` pada salah satu pilihan)*
+
+- [ ] **DITERIMA PENUH (ACCEPTED)** — Seluruh modul berfungsi dengan baik, tidak ada kendala Major/Critical, dan sistem dinyatakan siap untuk proses migrasi database produksi.
+- [ ] **DITERIMA DENGAN CATATAN (CONDITIONALLY ACCEPTED)** — Sistem dapat diterima untuk operasional harian dengan perbaikan minor yang dicatat pada formulir temuan.
+- [ ] **DITOLAK / DITUNDA (REJECTED)** — Ditemukan kendala berstatus Critical atau Major yang wajib diselesaikan terlebih dahulu sebelum deployment.
 
 <br>
 
-Ditetapkan dan ditandatangani pada tanggal: `____ / ____________ / 2026`
+Ditetapkan dan ditandatangani di Cilegon pada tanggal: `..... / ..... / 2026`
 
-<br>
+<br><br>
 
-| Perwakilan TB KUK La Tansa | Perwakilan KUK Palen | Manajemen / Pimpinan KUK |
-| :---: | :---: | :---: |
-| <br><br><br><br>___________________________<br>**Kepala Toko La Tansa** | <br><br><br><br>___________________________<br>**Kepala Toko KUK Palen** | <br><br><br><br>___________________________<br>**Pimpinan / Direktur KUK** |
-
+| Perwakilan TB KUK La Tansa | Perwakilan KUK Palen | Manajemen Personalia & Keuangan | Direksi / Pimpinan CV KUK |
+| :---: | :---: | :---: | :---: |
+| <br><br><br><br><br>_________________________<br>**Kepala Toko La Tansa** | <br><br><br><br><br>_________________________<br>**Kepala Toko KUK Palen** | <br><br><br><br><br>_________________________<br>**HRD & Keuangan Pusat** | <br><br><br><br><br>_________________________<br>**Direktur / Pimpinan Pusat** |

@@ -28,8 +28,9 @@ Berikut adalah aturan bisnis yang telah resmi disahkan oleh Manajemen KUK dan di
      - `tip_percentage_snapshot` (Persentase tip yang diterapkan, default: `0.0300`).
      - `tip_amount` (`calculated_amount`, hasil kalkulasi harga $\times$ 0.03).
   4. **Kekekalan Transaksi Historis**: Perubahan harga jual kaca pada master data di masa mendatang **tidak akan pernah mengubah** nilai tip pada transaksi yang telah tersimpan.
-  5. **Aturan Pembulatan (Rounding Rule)**: Nominal tip dibulatkan ke atas ke kelipatan Rp 1.000 terdekat (`ROUND_UP_1000`) secara konsisten, atau sesuai aturan master `rounding_rule`.
-  6. **Catatan Detail yang Masih Menunggu Konfirmasi**:
+  5. **Aturan Pembulatan (Rounding Rule)**: Nominal tip dihitung secara eksak 3% dari total harga dasar kaca tanpa pembulatan ke atas kelipatan Rp 1.000 (`EXACT` / `ROUND_EXACT`). Tidak diperkenankan menghitung 3% dari total nilai invoice atau menyertakan biaya non-kaca.
+  6. **Validasi Master Tarif**: Tipe kaca tanpa konfigurasi harga master aktif pada unit akan ditolak oleh sistem.
+  7. **Catatan Detail yang Masih Menunggu Konfirmasi**:
      > [!IMPORTANT]
      > Apakah dasar harga jual kaca yang digunakan merupakan harga **sebelum diskon / sebelum pajak (PPN)** atau **setelah diskon / setelah pajak (PPN)**? Saat ini sistem menggunakan dasar harga jual acuan (*base selling price*) dan parameter ini dicatat untuk konfirmasi lanjutan bagian Finance.
 

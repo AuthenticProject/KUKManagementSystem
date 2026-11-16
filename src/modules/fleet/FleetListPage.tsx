@@ -21,7 +21,11 @@ import {
   Fuel,
   Sparkles,
   ClipboardCheck,
+  Printer,
 } from 'lucide-react';
+import { PrintHeader } from '@/components/common/PrintHeader';
+import { exportToCSV } from '@/utils/exportUtils';
+import { PageHeader } from '@/components/ui';
 
 export const FleetListPage: React.FC = () => {
   const { activeUnit, activeUnitId } = useUnit();
@@ -80,6 +84,8 @@ export const FleetListPage: React.FC = () => {
   const [retReadiness, setRetReadiness] = useState<'FIT' | 'NEEDS_MAINTENANCE'>('FIT');
   const [retTime, setRetTime] = useState(new Date().toISOString().slice(0, 16));
   const [returning, setReturning] = useState(false);
+  const [suratJalanModalOpen, setSuratJalanModalOpen] = useState(false);
+  const [selectedReqForSuratJalan, setSelectedReqForSuratJalan] = useState<VehicleBorrowingRequest | null>(null);
 
   const canManageFleet = hasPermission('fleet.manage', activeUnitId);
   const canApproveBorrowing = hasPermission('fleet.approve_borrowing', activeUnitId);
@@ -269,18 +275,35 @@ export const FleetListPage: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'Kode Booking,Peminjam,Instansi,Telepon,Penanggung Jawab,Armada,Plat,Waktu Mulai,Waktu Selesai,Tujuan,Keperluan,Status\n';
-    requests.forEach((r) => {
-      csvContent += `"${r.booking_code}","${r.borrower_name}","${r.borrower_institution || '-'}","${r.borrower_phone}","${r.responsible_person}","${r.vehicle?.brand || ''} ${r.vehicle?.model || ''}","${r.vehicle?.license_plate || ''}","${r.start_time}","${r.estimated_return_time}","${r.destination}","${r.purpose}","${r.status}"\n`;
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Peminjaman_Armada_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const headers = [
+      'Kode Booking',
+      'Peminjam',
+      'Instansi',
+      'Telepon',
+      'Penanggung Jawab',
+      'Armada',
+      'Plat',
+      'Waktu Mulai',
+      'Waktu Selesai',
+      'Tujuan',
+      'Keperluan',
+      'Status',
+    ];
+    const rows = requests.map((r) => [
+      r.booking_code,
+      r.borrower_name,
+      r.borrower_institution || '-',
+      r.borrower_phone,
+      r.responsible_person,
+      `${r.vehicle?.brand || ''} ${r.vehicle?.model || ''}`,
+      r.vehicle?.license_plate || '',
+      r.start_time,
+      r.estimated_return_time,
+      r.destination,
+      r.purpose,
+      r.status,
+    ]);
+    exportToCSV(`Peminjaman_Armada_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`, headers, rows);
   };
 
   return (
@@ -298,58 +321,54 @@ export const FleetListPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <Truck className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Armada & Peminjaman Kendaraan</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Inventaris armada & jadwal peminjaman unit <span className="font-semibold text-kuk-maroon">{activeUnit?.name || 'Unit Aktif'}</span>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Ekspor CSV</span>
-          </button>
-
-          <button
-            onClick={() => setBookingModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white rounded-xl text-xs font-semibold hover:bg-kuk-maroon-700 transition-colors shadow-xs"
-          >
-            <Send className="w-4 h-4" />
-            <span>Ajukan Pinjam Armada</span>
-          </button>
-
-          {canManageFleet && (
+      {/* Header Halaman */}
+      <PageHeader
+        title="Armada & Peminjaman Kendaraan"
+        subtitle={`Inventaris armada & jadwal peminjaman unit ${activeUnit?.name || 'Unit Aktif'}`}
+        icon={<Truck className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Armada & Kendaraan' }]}
+        unitBadge={activeUnit?.name}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setVehicleModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-200 transition-colors"
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+              title="Ekspor CSV"
             >
-              <Plus className="w-4 h-4" />
-              <span>Daftar Armada Baru</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span>Ekspor CSV</span>
             </button>
-          )}
 
-          <a
-            href="/kiosk/fleet-booking"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-semibold transition-colors"
-          >
-            <ExternalLink className="w-4 h-4 text-kuk-maroon" />
-            <span>Kiosk Booking Publik</span>
-          </a>
-        </div>
-      </div>
+            <button
+              onClick={() => setBookingModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white rounded-xl text-xs font-semibold hover:bg-kuk-maroon-dark transition-colors shadow-xs"
+            >
+              <Send className="w-4 h-4 text-kuk-gold" />
+              <span>Ajukan Pinjam Armada</span>
+            </button>
+
+            {canManageFleet && (
+              <button
+                onClick={() => setVehicleModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
+              >
+                <Plus className="w-4 h-4 text-kuk-maroon" />
+                <span>Daftar Armada Baru</span>
+              </button>
+            )}
+
+            <a
+              href="/kiosk/fleet-booking"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
+            >
+              <ExternalLink className="w-4 h-4 text-kuk-maroon" />
+              <span>Kiosk Booking Publik</span>
+            </a>
+          </div>
+        }
+      />
 
       {/* Error Alert Banner */}
       {error && !loading && (
@@ -531,6 +550,17 @@ export const FleetListPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      setSelectedReqForSuratJalan(r);
+                      setSuratJalanModalOpen(true);
+                    }}
+                    className="p-1.5 text-gray-500 hover:text-kuk-maroon hover:bg-kuk-maroon-50 rounded-lg transition-colors"
+                    title="Cetak Surat Jalan Peminjaman Armada"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+
                   {canApproveBorrowing && r.status === 'PENDING' && (
                     <>
                       <button
@@ -1076,6 +1106,125 @@ export const FleetListPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cetak Surat Jalan Peminjaman Armada */}
+      {suratJalanModalOpen && selectedReqForSuratJalan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="px-6 py-3.5 bg-gray-900 text-white flex items-center justify-between print:hidden">
+              <div className="flex items-center gap-2">
+                <Truck className="w-5 h-5 text-kuk-gold" />
+                <span className="font-bold text-sm">Surat Jalan Armada — {selectedReqForSuratJalan.booking_code}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-kuk-maroon text-white hover:bg-kuk-maroon-700 rounded-lg text-xs font-semibold transition-colors shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak Dokumen</span>
+                </button>
+                <button
+                  onClick={() => setSuratJalanModalOpen(false)}
+                  className="text-white/80 hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-6 text-xs bg-white text-gray-800">
+              <PrintHeader
+                title="SURAT JALAN & IZIN OPERASIONAL ARMADA"
+                documentNumber={selectedReqForSuratJalan.booking_code}
+                unitName={activeUnit?.name}
+                unitCode={activeUnit?.code}
+              />
+
+              <div className="grid grid-cols-2 gap-4 bg-gray-50/70 p-4 rounded-xl border border-gray-200">
+                <div className="space-y-1">
+                  <div className="text-gray-500 text-[11px]">Identitas Peminjam:</div>
+                  <div className="font-bold text-gray-900 text-sm">{selectedReqForSuratJalan.borrower_name}</div>
+                  <div className="text-gray-600 font-medium">{selectedReqForSuratJalan.borrower_institution || 'Internal KUK'} • {selectedReqForSuratJalan.borrower_phone}</div>
+                  <div className="text-gray-500 text-[11px]">Penanggung Jawab: {selectedReqForSuratJalan.responsible_person}</div>
+                </div>
+                <div className="space-y-1 text-right">
+                  <div className="text-gray-500 text-[11px]">Armada yang Dipinjam:</div>
+                  <div className="font-bold text-gray-900 text-sm">{selectedReqForSuratJalan.vehicle?.brand} {selectedReqForSuratJalan.vehicle?.model}</div>
+                  <div className="font-mono font-bold text-kuk-maroon text-xs">{selectedReqForSuratJalan.vehicle?.license_plate}</div>
+                  <div>
+                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                      selectedReqForSuratJalan.status === 'APPROVED' || selectedReqForSuratJalan.status === 'IN_USE'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : selectedReqForSuratJalan.status === 'RETURNED'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      STATUS: {selectedReqForSuratJalan.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+                <div className="text-gray-500 text-[11px] uppercase font-bold tracking-wider">Jadwal & Tujuan Perjalanan:</div>
+                <div className="grid grid-cols-2 gap-3 text-xs bg-gray-50 p-3 rounded-lg border border-gray-100">
+                  <div>
+                    <span className="text-gray-500">Waktu Berangkat:</span>
+                    <div className="font-semibold text-gray-900 mt-0.5">{new Date(selectedReqForSuratJalan.start_time).toLocaleString('id-ID')}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Estimasi Kembali:</span>
+                    <div className="font-semibold text-gray-900 mt-0.5">{new Date(selectedReqForSuratJalan.estimated_return_time).toLocaleString('id-ID')}</div>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-gray-200/60">
+                    <span className="text-gray-500">Tujuan & Keperluan:</span>
+                    <div className="font-bold text-gray-900 mt-0.5">{selectedReqForSuratJalan.destination} — {selectedReqForSuratJalan.purpose}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Checklist Serah Terima Fisik */}
+              <div className="border border-gray-200 rounded-xl p-4 bg-white space-y-2">
+                <div className="text-gray-500 text-[11px] uppercase font-bold tracking-wider">Lembar Cek Fisik & Kondisi Armada:</div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="text-gray-400 text-[10px]">Odometer Awal</div>
+                    <div className="font-mono font-bold text-gray-800 mt-1">______ KM</div>
+                  </div>
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="text-gray-400 text-[10px]">Bahan Bakar Awal</div>
+                    <div className="font-bold text-gray-800 mt-1">[ ] 1/4 [ ] 1/2 [ ] Full</div>
+                  </div>
+                  <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="text-gray-400 text-[10px]">Kondisi Fisik</div>
+                    <div className="font-bold text-gray-800 mt-1">[ ] Baik & Bersih</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Signatures */}
+              <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-200 text-center">
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Peminjam / Pengemudi:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">({selectedReqForSuratJalan.borrower_name})</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Petugas Logistik Toko:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">(Petugas Armada)</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Kepala Toko / Menyetujui:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">(Manajer Unit)</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

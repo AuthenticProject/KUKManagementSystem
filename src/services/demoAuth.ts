@@ -4,8 +4,10 @@ import type { UserRole } from '@/types/models';
 
 export type DemoIdentityKey =
   | 'PIMPINAN'
+  | 'HRD'
   | 'MANAGER_LATANSA'
   | 'MANAGER_PALEN'
+  | 'FINANCE'
   | 'SUPERVISOR'
   | 'KASIR'
   | 'CUTTER'
@@ -71,6 +73,7 @@ const PERMS_MANAGER = [
   'employees.view',
   'employees.create',
   'employees.update',
+  'employees.edit',
   'employees.view_sensitive',
   'leave.view',
   'leave.manage',
@@ -113,9 +116,8 @@ const PERMS_SUPERVISOR = [
 const PERMS_KASIR = [
   'glass_tips.view',
   'glass_tips.verify',
-  'payroll.view',
   'finance.view',
-  'finance.approve',
+  'finance.record',
 ].map(makePerm);
 
 const PERMS_CUTTER = [
@@ -126,6 +128,39 @@ const PERMS_CUTTER = [
 const PERMS_DRIVER = [
   'fleet.view',
   'attendance.view',
+].map(makePerm);
+
+const PERMS_HRD = [
+  'employees.view',
+  'employees.create',
+  'employees.update',
+  'employees.edit',
+  'employees.view_sensitive',
+  'leave.view',
+  'leave.manage',
+  'violations.view',
+  'violations.manage',
+  'violations.issue_sp',
+  'attendance.view',
+  'attendance.manage_briefing',
+  'attendance.import_fingerprint',
+  'attendance.adjust',
+  'reports.view',
+  'reports.export_excel',
+].map(makePerm);
+
+const PERMS_FINANCE = [
+  'finance.view',
+  'finance.record',
+  'finance.approve',
+  'payroll.view',
+  'payroll.calculate',
+  'payroll.manage',
+  'payroll.finalize',
+  'glass_tips.view',
+  'glass_tips.verify',
+  'reports.view',
+  'reports.export_excel',
 ].map(makePerm);
 
 export const DEMO_IDENTITIES: Record<DemoIdentityKey, DemoIdentity> = {
@@ -177,6 +212,46 @@ export const DEMO_IDENTITIES: Record<DemoIdentityKey, DemoIdentity> = {
         unit: CANONICAL_DEMO_UNITS.PALEN,
         role: { id: 'role-pimpinan', code: 'admin_unit', name: 'Pimpinan Unit', is_system_role: false },
         permissions: PERMS_MANAGER,
+      },
+    ],
+  },
+
+  HRD: {
+    key: 'HRD',
+    label: 'HRD Demo (UAT)',
+    badge: 'HR & Personalia',
+    role: 'MANAGER',
+    description: 'Pengelolaan data kepegawaian, presensi, cuti, dan penegakan SP (TB KUK La Tansa & KUK Palen).',
+    unitScope: 'ALL',
+    defaultUnitId: CANONICAL_DEMO_UNITS.LATANSA.id,
+    profile: {
+      id: 'demo-user-hrd',
+      email: 'hrd.demo@kuk.test',
+      full_name: 'Ibu Personalia / HRD (UAT Demo)',
+      phone_number: '081200000010',
+      is_active: true,
+    },
+    systemRoles: [],
+    unitRoles: [
+      {
+        id: 'ur-hrd-latansa',
+        user_id: 'demo-user-hrd',
+        unit_id: CANONICAL_DEMO_UNITS.LATANSA.id,
+        role_id: 'role-hrd',
+        is_default_unit: true,
+        unit: CANONICAL_DEMO_UNITS.LATANSA,
+        role: { id: 'role-hrd', code: 'admin_unit', name: 'HRD & Personalia', is_system_role: false },
+        permissions: PERMS_HRD,
+      },
+      {
+        id: 'ur-hrd-palen',
+        user_id: 'demo-user-hrd',
+        unit_id: CANONICAL_DEMO_UNITS.PALEN.id,
+        role_id: 'role-hrd',
+        is_default_unit: false,
+        unit: CANONICAL_DEMO_UNITS.PALEN,
+        role: { id: 'role-hrd', code: 'admin_unit', name: 'HRD & Personalia', is_system_role: false },
+        permissions: PERMS_HRD,
       },
     ],
   },
@@ -237,6 +312,46 @@ export const DEMO_IDENTITIES: Record<DemoIdentityKey, DemoIdentity> = {
         unit: CANONICAL_DEMO_UNITS.PALEN,
         role: { id: 'role-manager', code: 'admin_unit', name: 'Kepala Toko', is_system_role: false },
         permissions: PERMS_MANAGER,
+      },
+    ],
+  },
+
+  FINANCE: {
+    key: 'FINANCE',
+    label: 'Finance Demo (UAT)',
+    badge: 'Keuangan & Akuntansi',
+    role: 'MANAGER',
+    description: 'Pemeriksaan kas kecil, otorisasi pengeluaran dana, dan finalisasi payroll (TB KUK La Tansa & KUK Palen).',
+    unitScope: 'ALL',
+    defaultUnitId: CANONICAL_DEMO_UNITS.LATANSA.id,
+    profile: {
+      id: 'demo-user-finance',
+      email: 'finance.demo@kuk.test',
+      full_name: 'Staff Keuangan Pusat (UAT Demo)',
+      phone_number: '081200000011',
+      is_active: true,
+    },
+    systemRoles: [],
+    unitRoles: [
+      {
+        id: 'ur-fin-latansa',
+        user_id: 'demo-user-finance',
+        unit_id: CANONICAL_DEMO_UNITS.LATANSA.id,
+        role_id: 'role-finance',
+        is_default_unit: true,
+        unit: CANONICAL_DEMO_UNITS.LATANSA,
+        role: { id: 'role-finance', code: 'admin_unit', name: 'Petugas Keuangan', is_system_role: false },
+        permissions: PERMS_FINANCE,
+      },
+      {
+        id: 'ur-fin-palen',
+        user_id: 'demo-user-finance',
+        unit_id: CANONICAL_DEMO_UNITS.PALEN.id,
+        role_id: 'role-finance',
+        is_default_unit: false,
+        unit: CANONICAL_DEMO_UNITS.PALEN,
+        role: { id: 'role-finance', code: 'admin_unit', name: 'Petugas Keuangan', is_system_role: false },
+        permissions: PERMS_FINANCE,
       },
     ],
   },
@@ -396,4 +511,63 @@ export function clearStoredDemoIdentity(): void {
   if (typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.removeItem(DEMO_STORAGE_KEY);
   }
+}
+
+export interface DemoActorValidation {
+  allowed: boolean;
+  reason?: string;
+  actorKey?: DemoIdentityKey;
+}
+
+export function validateDemoActor(
+  targetUnitId?: string | null,
+  requiredPermission?: string
+): DemoActorValidation {
+  const activeKey = getStoredDemoIdentityKey();
+  if (!activeKey) {
+    return { allowed: true };
+  }
+  const identity = DEMO_IDENTITIES[activeKey];
+  if (!identity) {
+    return { allowed: false, reason: 'Identitas demo tidak valid.' };
+  }
+
+  // 1. Pimpinan has Super Admin privilege across all units
+  if (identity.key === 'PIMPINAN') {
+    return { allowed: true, actorKey: activeKey };
+  }
+
+  // 2. Unit Scope Check
+  if (targetUnitId) {
+    if (identity.unitScope === 'LATANSA' && targetUnitId === CANONICAL_DEMO_UNITS.PALEN.id) {
+      return {
+        allowed: false,
+        reason: 'Akses Ditolak: Pengguna Unit TB KUK La Tansa tidak diizinkan mengakses atau memodifikasi data unit KUK Palen.',
+        actorKey: activeKey,
+      };
+    }
+    if (identity.unitScope === 'PALEN' && targetUnitId === CANONICAL_DEMO_UNITS.LATANSA.id) {
+      return {
+        allowed: false,
+        reason: 'Akses Ditolak: Pengguna Unit KUK Palen tidak diizinkan mengakses atau memodifikasi data unit TB KUK La Tansa.',
+        actorKey: activeKey,
+      };
+    }
+  }
+
+  // 3. Granular Permission Check
+  if (requiredPermission) {
+    const hasPerm = identity.unitRoles.some((ur) =>
+      ur.permissions.some((p) => p.code === requiredPermission)
+    );
+    if (!hasPerm) {
+      return {
+        allowed: false,
+        reason: `Akses Ditolak: Role ${identity.role} tidak memiliki wewenang '${requiredPermission}'.`,
+        actorKey: activeKey,
+      };
+    }
+  }
+
+  return { allowed: true, actorKey: activeKey };
 }

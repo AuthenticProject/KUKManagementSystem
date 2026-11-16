@@ -17,6 +17,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui';
 
 export const SettingsPage: React.FC = () => {
   const { isSuperAdmin } = useAuth();
@@ -167,20 +168,13 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <Settings className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Pengaturan Sistem & Hak Akses</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Manajemen pengguna sistem, matriks role-based access control (RBAC), dan parameter multi-unit.
-          </p>
-        </div>
-      </div>
+      {/* Header Halaman */}
+      <PageHeader
+        title="Pengaturan Sistem & Hak Akses"
+        subtitle="Manajemen pengguna sistem, matriks role-based access control (RBAC), dan parameter multi-unit."
+        icon={<Settings className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Pengaturan Sistem' }]}
+      />
 
       {/* Tab Navigation */}
       <div className="flex gap-2 border-b border-gray-200 pb-2">

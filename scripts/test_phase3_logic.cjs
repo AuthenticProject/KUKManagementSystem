@@ -38,18 +38,19 @@ runTest('Calculates glass area correctly in m2', () => {
   assert.strictEqual(calculatedSqm, 2.4);
 });
 
-runTest('Proposed 3% tip calculation with round-up to nearest Rp1.000', () => {
+runTest('Approved 3% tip calculation from glass price without unapproved round-up', () => {
   const pricePerSqm = 125000;
   const calculatedSqm = 2.4;
   const glassPrice = Math.round(calculatedSqm * pricePerSqm); // 300,000
-  const estimatedTip = Math.ceil((glassPrice * 0.03) / 1000) * 1000; // 9,000
+  // Approved business rule: 3% of glass price, exact nominal without rounding to Rp1,000
+  const estimatedTip = Math.round(glassPrice * 0.03); // 9,000
   assert.strictEqual(glassPrice, 300000);
   assert.strictEqual(estimatedTip, 9000);
 
-  // Non-round test: glass price 125,500 -> 3% is 3,765 -> round up to 4,000
+  // Exact non-round test: glass price 125,500 -> 3% is exactly 3,765 (NO round up to 4,000)
   const oddPrice = 125500;
-  const oddTip = Math.ceil((oddPrice * 0.03) / 1000) * 1000;
-  assert.strictEqual(oddTip, 4000);
+  const oddTip = Math.round(oddPrice * 0.03);
+  assert.strictEqual(oddTip, 3765);
 });
 
 runTest('Enforces 6-digit PIN format validation', () => {

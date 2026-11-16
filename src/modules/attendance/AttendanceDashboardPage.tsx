@@ -17,7 +17,12 @@ import {
   Edit3,
   CalendarDays,
   BarChart2,
+  Printer,
 } from 'lucide-react';
+import { PrintHeader } from '@/components/common/PrintHeader';
+import { exportToCSV } from '@/utils/exportUtils';
+import { FingerprintImportModal } from './FingerprintImportModal';
+import { PageHeader } from '@/components/ui';
 
 export const AttendanceDashboardPage: React.FC = () => {
   const { activeUnit, activeUnitId } = useUnit();
@@ -57,6 +62,7 @@ export const AttendanceDashboardPage: React.FC = () => {
   const [corrStatus, setCorrStatus] = useState<AttendanceStatus>('PRESENT');
   const [corrNotes, setCorrNotes] = useState('');
   const [corrSaving, setCorrSaving] = useState(false);
+  const [printRecapModalOpen, setPrintRecapModalOpen] = useState(false);
 
   const loadDailyData = async () => {
     if (!activeUnitId) return;
@@ -154,31 +160,54 @@ export const AttendanceDashboardPage: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
     if (activeTab === 'DAILY') {
-      csvContent += 'Nama Karyawan,Kode,Jam Masuk,Jam Keluar,Keterlambatan (Menit),Sumber,Status,Tanggal\n';
-      dailyAttendance.forEach((att) => {
-        csvContent += `"${att.employee?.full_name || ''}","${att.employee?.employee_code || ''}","${att.check_in_time || '-'}","${att.check_out_time || '-'}","${att.late_minutes || 0}","${att.source || ''}","${att.status}","${selectedDate}"\n`;
-      });
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `Presensi_Harian_${activeUnit?.code || 'KUK'}_${selectedDate}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const headers = [
+        'Nama Karyawan',
+        'Kode',
+        'Jam Masuk',
+        'Jam Keluar',
+        'Keterlambatan (Menit)',
+        'Sumber',
+        'Status',
+        'Tanggal',
+      ];
+      const rows = dailyAttendance.map((att) => [
+        att.employee?.full_name || '',
+        att.employee?.employee_code || '',
+        att.check_in_time || '-',
+        att.check_out_time || '-',
+        att.late_minutes || 0,
+        att.source || '',
+        att.status,
+        selectedDate,
+      ]);
+      exportToCSV(`Presensi_Harian_${activeUnit?.code || 'KUK'}_${selectedDate}`, headers, rows);
     } else {
-      csvContent += 'Nama Karyawan,Kode,Departemen,Hadir,Terlambat,Izin,Sakit,Alpa,Total Menit Terlambat,Bulan\n';
-      recapData.forEach((rec) => {
-        csvContent += `"${rec.employee_name}","${rec.employee_code}","${rec.department_name}","${rec.present_days}","${rec.late_days}","${rec.permit_days}","${rec.sick_days}","${rec.absent_days}","${rec.total_late_minutes}","${selectedMonth}"\n`;
-      });
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `Rekap_Presensi_Bulanan_${activeUnit?.code || 'KUK'}_${selectedMonth}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const headers = [
+        'Nama Karyawan',
+        'Kode',
+        'Departemen',
+        'Hadir',
+        'Terlambat',
+        'Izin',
+        'Sakit',
+        'Alpa',
+        'Total Menit Terlambat',
+        'Bulan',
+      ];
+      const rows = recapData.map((rec) => [
+        rec.employee_name,
+        rec.employee_code,
+        rec.department_name,
+        rec.present_days,
+        rec.late_days,
+        rec.permit_days,
+        rec.sick_days,
+        rec.absent_days,
+        rec.total_late_minutes,
+        selectedMonth,
+      ]);
+      exportToCSV(`Rekap_Presensi_Bulanan_${activeUnit?.code || 'KUK'}_${selectedMonth}`, headers, rows);
     }
   };
 
@@ -191,50 +220,55 @@ export const AttendanceDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <Clock className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Presensi & Briefing Operasional</h1>
+      {/* Header Halaman */}
+      <PageHeader
+        title="Presensi & Briefing Operasional"
+        subtitle={`Pengarahan pagi & presensi karyawan unit ${activeUnit?.name || 'Unit Aktif'}`}
+        icon={<Clock className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Presensi & Briefing' }]}
+        unitBadge={activeUnit?.name}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+              title="Ekspor data presensi ke CSV"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span>Ekspor CSV</span>
+            </button>
+
+            <button
+              onClick={() => setPrintRecapModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+              title="Cetak Rekapitulasi Presensi"
+            >
+              <Printer className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span className="hidden sm:inline">Cetak Rekap</span>
+            </button>
+
+            {hasPermission('attendance.manage_briefing', activeUnitId) && (
+              <button
+                onClick={() => setBriefingModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-kuk-maroon text-white rounded-xl text-xs font-semibold hover:bg-kuk-maroon-dark transition-colors shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Sesi Briefing Baru</span>
+              </button>
+            )}
+
+            {hasPermission('attendance.import_fingerprint', activeUnitId) && (
+              <button
+                onClick={() => setFingerprintModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
+              >
+                <UploadCloud className="w-4 h-4 text-kuk-maroon" />
+                <span>Impor Fingerprint</span>
+              </button>
+            )}
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Pengarahan pagi & presensi karyawan unit <span className="font-semibold text-kuk-maroon">{activeUnit?.name || 'Unit Aktif'}</span>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Ekspor CSV</span>
-          </button>
-
-          {hasPermission('attendance.manage_briefing', activeUnitId) && (
-            <button
-              onClick={() => setBriefingModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-kuk-maroon text-white rounded-xl text-xs font-semibold hover:bg-kuk-maroon-700 transition-colors shadow-xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Sesi Briefing Baru</span>
-            </button>
-          )}
-
-          {hasPermission('attendance.import_fingerprint', activeUnitId) && (
-            <button
-              onClick={() => setFingerprintModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-200 transition-colors"
-            >
-              <UploadCloud className="w-4 h-4 text-gray-500" />
-              <span>Impor Fingerprint</span>
-            </button>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {/* Error Alert Banner */}
       {error && !loading && (
@@ -665,57 +699,119 @@ export const AttendanceDashboardPage: React.FC = () => {
         </div>
       )}
       {/* Modal Sinkronisasi Fingerprint */}
-      {fingerprintModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 bg-kuk-maroon text-white flex items-center justify-between">
+      <FingerprintImportModal
+        isOpen={fingerprintModalOpen}
+        onClose={() => setFingerprintModalOpen(false)}
+        unitId={activeUnitId || ''}
+        onImportSuccess={(count) => {
+          showToast(`Berhasil menyinkronkan ${count} data presensi fingerprint.`);
+          loadDailyData();
+        }}
+      />
+
+      {/* Modal Cetak Rekapitulasi Presensi Bulanan */}
+      {printRecapModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="px-6 py-3.5 bg-gray-900 text-white flex items-center justify-between print:hidden">
               <div className="flex items-center gap-2">
-                <UploadCloud className="w-5 h-5 text-kuk-gold" />
-                <h2 className="font-bold text-sm">Sinkronisasi Log Mesin Fingerprint</h2>
+                <Clock className="w-5 h-5 text-kuk-gold" />
+                <span className="font-bold text-sm">Rekapitulasi Presensi — Bulan {selectedMonth}</span>
               </div>
-              <button onClick={() => setFingerprintModalOpen(false)} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-kuk-maroon text-white hover:bg-kuk-maroon-700 rounded-lg text-xs font-semibold transition-colors shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak Dokumen</span>
+                </button>
+                <button
+                  onClick={() => setPrintRecapModalOpen(false)}
+                  className="text-white/80 hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 space-y-1">
-                <div className="font-bold">Protokol File Mesin Biometrik:</div>
-                <p>Mendukung berkas raw data <code>.dat</code> dan <code>.csv</code> standar mesin Solution / ZKTeco.</p>
+            <div className="p-8 space-y-6 text-xs bg-white text-gray-800">
+              <PrintHeader
+                title="REKAPITULASI PRESENSI & KEDISIPLINAN KARYAWAN"
+                documentNumber={`PRES/${selectedMonth}/${activeUnit?.code || 'KUK'}`}
+                unitName={activeUnit?.name}
+                unitCode={activeUnit?.code}
+              />
+
+              <div className="flex items-center justify-between bg-gray-50/70 p-4 rounded-xl border border-gray-200">
+                <div>
+                  <span className="text-gray-500 text-[11px]">Periode Rekapitulasi:</span>
+                  <div className="font-bold text-gray-900 text-sm">Bulan {selectedMonth}</div>
+                </div>
+                <div className="text-right">
+                  <span className="text-gray-500 text-[11px]">Total Data Tercatat:</span>
+                  <div className="font-bold text-gray-900 text-sm">{recapData.length > 0 ? recapData.length : dailyAttendance.length} Karyawan</div>
+                </div>
               </div>
 
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center space-y-2 hover:border-kuk-maroon/50 transition-colors">
-                <UploadCloud className="w-8 h-8 text-gray-400 mx-auto" />
-                <div className="text-gray-700 font-semibold">Tarik & Lepas File Fingerprint di Sini</div>
-                <div className="text-gray-400 text-[11px]">Format: .dat atau .csv (Maksimal 10 MB)</div>
-                <input
-                  type="file"
-                  accept=".dat,.csv,.txt"
-                  className="hidden"
-                  id="fp-upload"
-                  onChange={() => {
-                    showToast('File diterima. Sinkronisasi log mesin fingerprint dijadwalkan pada pipeline batching (Phase 1C).');
-                    setFingerprintModalOpen(false);
-                  }}
-                />
-                <label
-                  htmlFor="fp-upload"
-                  className="inline-block mt-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg cursor-pointer"
-                >
-                  Pilih Berkas Lokal
-                </label>
+              <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-700 font-bold uppercase border-b border-gray-200">
+                    <tr>
+                      <th className="px-3 py-2.5">No</th>
+                      <th className="px-3 py-2.5">Karyawan</th>
+                      <th className="px-3 py-2.5">Departemen</th>
+                      <th className="px-3 py-2.5 text-center">Hadir</th>
+                      <th className="px-3 py-2.5 text-center">Terlambat</th>
+                      <th className="px-3 py-2.5 text-center">Izin / Sakit</th>
+                      <th className="px-3 py-2.5 text-center">Mangkir</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {recapData.length > 0 ? (
+                      recapData.map((rec, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50/50">
+                          <td className="px-3 py-2 text-gray-500 font-mono">{idx + 1}</td>
+                          <td className="px-3 py-2">
+                            <span className="font-semibold text-gray-900">{rec.employee_name}</span>
+                            <span className="text-[10px] font-mono text-gray-400 block">{rec.employee_code}</span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">{rec.department_name}</td>
+                          <td className="px-3 py-2 text-center font-bold text-emerald-700">{rec.present_days}</td>
+                          <td className="px-3 py-2 text-center font-bold text-amber-700">{rec.late_days}</td>
+                          <td className="px-3 py-2 text-center text-blue-700 font-semibold">{rec.permit_days + rec.sick_days}</td>
+                          <td className="px-3 py-2 text-center font-bold text-rose-700">{rec.absent_days}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      dailyAttendance.map((att, idx) => (
+                        <tr key={att.id} className="hover:bg-gray-50/50">
+                          <td className="px-3 py-2 text-gray-500 font-mono">{idx + 1}</td>
+                          <td className="px-3 py-2 font-semibold text-gray-900">{att.employee?.full_name}</td>
+                          <td className="px-3 py-2 text-gray-700">{att.employee?.department?.name || 'Operasional'}</td>
+                          <td className="px-3 py-2 text-center font-bold text-emerald-700">{att.status === 'PRESENT' ? '1' : '0'}</td>
+                          <td className="px-3 py-2 text-center font-bold text-amber-700">{att.status === 'LATE' ? '1' : '0'}</td>
+                          <td className="px-3 py-2 text-center text-blue-700 font-semibold">{att.status === 'PERMIT' || att.status === 'SICK' ? '1' : '0'}</td>
+                          <td className="px-3 py-2 text-center font-bold text-rose-700">{att.status === 'ABSENT' ? '1' : '0'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
 
-              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[11px]">
-                <strong>Catatan Integrasi:</strong> Parser otomatis log raw fingerprint saat ini berstatus <em>PARTIAL</em> menunggu konfigurasi port IP mesin fingerprint fisik unit di Phase 1C.
-              </div>
-
-              <div className="flex justify-end pt-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setFingerprintModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  Tutup
-                </button>
+              {/* Signatures */}
+              <div className="grid grid-cols-2 gap-8 pt-6 border-t border-gray-200 text-center">
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Dibuat & Diverifikasi:</div>
+                  <div className="border-b border-gray-300 w-36 mx-auto"></div>
+                  <div className="font-bold text-gray-800">Personalia / HRD Unit</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Mengetahui & Menyetujui:</div>
+                  <div className="border-b border-gray-300 w-36 mx-auto"></div>
+                  <div className="font-bold text-gray-800">Kepala Toko / Manajer</div>
+                </div>
               </div>
             </div>
           </div>

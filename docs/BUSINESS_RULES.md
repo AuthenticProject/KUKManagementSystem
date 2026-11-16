@@ -103,7 +103,8 @@ $$\text{Luas (m}^2\text{)} = \frac{\text{Panjang (cm)} \times \text{Tinggi (cm)}
 $$\text{Harga Kaca (Glass Price)} = \text{Luas (m}^2\text{)} \times \text{Harga Jual per m}^2$$
 $$\text{Nominal Tip} = \text{Harga Kaca} \times 0.03$$
 - Besaran tip ditetapkan sebesar **3% (0.03) dari harga jual kaca yang valid**.
-- Hasil perhitungan tip dibulatkan ke atas ke kelipatan Rp 1.000 terdekat (`ROUND_UP_1000`) secara konsisten.
+- Hasil perhitungan tip dihitung secara eksak 3% dari total harga dasar kaca tanpa pembulatan ke atas kelipatan Rp 1.000 (`EXACT` / `ROUND_EXACT`).
+- **Validasi Master Harga:** Setiap pengajuan tip wajib mengacu pada tarif master kaca aktif unit. Tipe kaca tanpa tarif master aktif akan ditolak. Kalkulasi 3% dihitung strictly dari **harga dasar kaca**, bukan dari total invoice penjualan toko.
 - **Catatan Detail**: Penentuan apakah dasar harga menggunakan harga sebelum atau sesudah diskon/pajak (PPN) dicatat untuk konfirmasi lanjutan bagian Finance. Saat ini sistem mengacu pada harga jual acuan (*base selling price*).
 
 ### BR-TIP-003: Snapshot Immutability Transaksi Tip

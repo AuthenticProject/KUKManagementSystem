@@ -60,8 +60,7 @@ const PERMS_SUPERVISOR = [
 
 const PERMS_KASIR = [
   'glass_tips.view', 'glass_tips.verify',
-  'payroll.view',
-  'finance.view', 'finance.approve',
+  'finance.view', 'finance.record',
 ].map(makePerm);
 
 const PERMS_CUTTER = [
@@ -197,11 +196,13 @@ runTest('7. Driver can access fleet and attendance, but is denied glass_tips, pa
   assert.strictEqual(perms.includes('finance.view'), false);
 });
 
-runTest('8. Kasir can access glass_tips and finance/payroll view, but is denied employees and fleet management', () => {
+runTest('8. Kasir can access glass_tips and finance view/record, but is denied finance.approve, payroll, employees, and fleet', () => {
   const perms = DEMO_IDENTITIES.KASIR.permissions;
   assert.ok(perms.includes('glass_tips.view'));
   assert.ok(perms.includes('glass_tips.verify'));
   assert.ok(perms.includes('finance.view'));
+  assert.strictEqual(perms.includes('finance.approve'), false, 'Kasir must NOT have finance.approve');
+  assert.strictEqual(perms.includes('payroll.view'), false, 'Kasir must NOT have payroll.view');
   assert.strictEqual(perms.includes('employees.view'), false);
   assert.strictEqual(perms.includes('fleet.manage'), false);
 });

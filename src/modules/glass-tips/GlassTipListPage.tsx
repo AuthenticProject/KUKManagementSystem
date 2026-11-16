@@ -19,7 +19,11 @@ import {
   FileSpreadsheet,
   Banknote,
   ShieldCheck,
+  Printer,
 } from 'lucide-react';
+import { PrintHeader } from '@/components/common/PrintHeader';
+import { exportToCSV } from '@/utils/exportUtils';
+import { PageHeader } from '@/components/ui';
 
 export const GlassTipListPage: React.FC = () => {
   const { activeUnit, activeUnitId } = useUnit();
@@ -52,6 +56,8 @@ export const GlassTipListPage: React.FC = () => {
 
   // Rates Modal state
   const [ratesModalOpen, setRatesModalOpen] = useState(false);
+  const [printReceiptModalOpen, setPrintReceiptModalOpen] = useState(false);
+  const [selectedTipForPrint, setSelectedTipForPrint] = useState<GlassTip | null>(null);
 
   const loadData = async () => {
     if (!activeUnitId) return;
@@ -91,18 +97,29 @@ export const GlassTipListPage: React.FC = () => {
   }, [activeUnitId, activeTab]);
 
   const handleExportPayrollRecapCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'Kode Karyawan,Nama Pemotong,Bagian,Nota Terverifikasi,Total Luas (m2),Tip Terverifikasi (Rp),Nota Pending,Estimasi Tip Pending (Rp),Status Payroll\n';
-    cutterRecap.forEach((c) => {
-      csvContent += `"${c.employee_code}","${c.employee_name}","${c.department_name}","${c.verified_nota_count}","${c.total_sqm}","${c.verified_tip_total}","${c.pending_nota_count}","${c.pending_tip_estimate}","${c.payroll_ready ? 'SIAP PAYROLL' : 'ADA PENDING'}"\n`;
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Rekap_Tip_Payroll_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const headers = [
+      'Kode Karyawan',
+      'Nama Pemotong',
+      'Bagian',
+      'Nota Terverifikasi',
+      'Total Luas (m2)',
+      'Tip Terverifikasi (Rp)',
+      'Nota Pending',
+      'Estimasi Tip Pending (Rp)',
+      'Status Payroll',
+    ];
+    const rows = cutterRecap.map((c) => [
+      c.employee_code,
+      c.employee_name,
+      c.department_name,
+      c.verified_nota_count,
+      c.total_sqm,
+      c.verified_tip_total,
+      c.pending_nota_count,
+      c.pending_tip_estimate,
+      c.payroll_ready ? 'SIAP PAYROLL' : 'ADA PENDING',
+    ]);
+    exportToCSV(`Rekap_Tip_Payroll_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`, headers, rows);
   };
 
   useEffect(() => {
@@ -154,18 +171,35 @@ export const GlassTipListPage: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'Kode Nota,Tanggal,Pemotong,Jenis Kaca,Dimensi (cm),Lembar,Luas (m2),Nilai Kaca (Rp),Tip Standar (Rp),Status,Nominal Terverifikasi (Rp),Catatan\n';
-    tips.forEach((t) => {
-      csvContent += `"${t.reference_code}","${t.created_at}","${t.employee?.full_name || ''}","${t.glass_type?.name || ''}","${t.length_cm}x${t.height_cm}","${t.quantity}","${t.calculated_sqm}","${t.glass_price_snapshot}","${t.tip_amount}","${t.status}","${t.verified_amount || 0}","${t.notes || ''}"\n`;
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Nota_Tip_Kaca_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const headers = [
+      'Kode Nota',
+      'Tanggal',
+      'Pemotong',
+      'Jenis Kaca',
+      'Dimensi (cm)',
+      'Lembar',
+      'Luas (m2)',
+      'Nilai Kaca (Rp)',
+      'Tip Standar (Rp)',
+      'Status',
+      'Nominal Terverifikasi (Rp)',
+      'Catatan',
+    ];
+    const rows = tips.map((t) => [
+      t.reference_code,
+      t.created_at,
+      t.employee?.full_name || '',
+      t.glass_type?.name || '',
+      `${t.length_cm}x${t.height_cm}`,
+      t.quantity,
+      t.calculated_sqm,
+      t.glass_price_snapshot,
+      t.tip_amount,
+      t.status,
+      t.verified_amount || 0,
+      t.notes || '',
+    ]);
+    exportToCSV(`Nota_Tip_Kaca_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`, headers, rows);
   };
 
   const filtered = tips.filter((t) => statusFilter === 'ALL' || t.status === statusFilter);
@@ -185,56 +219,52 @@ export const GlassTipListPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <Scissors className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Tip Pemotongan Kaca</h1>
+      {/* Header Halaman */}
+      <PageHeader
+        title="Tip Pemotongan Kaca"
+        subtitle={`Verifikasi fisik nota & klaim tip potongan kaca unit ${activeUnit?.name || 'Unit Aktif'}`}
+        icon={<Scissors className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Tip Potong Kaca' }]}
+        unitBadge={activeUnit?.name}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+              title="Ekspor CSV"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span>Ekspor CSV</span>
+            </button>
+
+            <button
+              onClick={() => setRatesModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+            >
+              <Layers className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span>Tarif Kaca ({glassTypes.length})</span>
+            </button>
+
+            <a
+              href="/kiosk/glass-tip"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white hover:bg-kuk-maroon-dark rounded-xl text-xs font-semibold transition-colors shadow-xs"
+            >
+              <ExternalLink className="w-4 h-4 text-kuk-gold" />
+              <span>Kiosk Potong Kaca</span>
+            </a>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Verifikasi fisik nota & klaim tip potongan kaca unit <span className="font-semibold text-kuk-maroon">{activeUnit?.name || 'Unit Aktif'}</span>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Ekspor CSV</span>
-          </button>
-
-          <button
-            onClick={() => setRatesModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-xl text-xs font-semibold transition-colors"
-          >
-            <Layers className="w-4 h-4 text-gray-500" />
-            <span>Tarif Kaca ({glassTypes.length})</span>
-          </button>
-
-          <a
-            href="/kiosk/glass-tip"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white hover:bg-kuk-maroon-700 rounded-xl text-xs font-semibold transition-colors shadow-xs"
-          >
-            <ExternalLink className="w-4 h-4 text-kuk-gold" />
-            <span>Kiosk Potong Kaca</span>
-          </a>
-        </div>
-      </div>
+        }
+      />
 
       {/* Notice Banner */}
-      <div className="p-3 bg-amber-50 text-amber-900 border border-amber-300 rounded-xl text-xs flex items-center justify-between">
+      <div className="p-3 bg-amber-50/70 text-gray-800 border border-amber-200 rounded-xl text-xs flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Calculator className="w-4 h-4 text-amber-700 shrink-0" />
+          <Calculator className="w-4 h-4 text-kuk-maroon shrink-0" />
           <div>
-            <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-200 px-1.5 py-0.5 rounded mr-1.5 text-amber-900">PROPOSED FORMULA</span>
-            <span>Tip dihitung berdasarkan tarif terdaftar unit (pembulatan ke atas kelipatan Rp1.000). Nilai akhir mengikuti verifikasi fisik kasir/checker.</span>
+            <span className="font-bold uppercase tracking-wider text-[10px] bg-kuk-gold text-kuk-maroon px-1.5 py-0.5 rounded font-mono mr-1.5">FORMULA RESMI</span>
+            <span>Tip dihitung 3% dari harga dasar kaca sesuai tarif master aktif unit (tanpa pembulatan kelipatan Rp1.000). Nilai akhir mengikuti verifikasi fisik kasir/checker.</span>
           </div>
         </div>
       </div>
@@ -467,6 +497,16 @@ export const GlassTipListPage: React.FC = () => {
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="inline-flex items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setSelectedTipForPrint(t);
+                                setPrintReceiptModalOpen(true);
+                              }}
+                              className="p-1.5 text-gray-500 hover:text-kuk-maroon hover:bg-kuk-maroon-50 rounded-lg transition-colors"
+                              title="Cetak Nota Verifikasi Tip"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => handleOpenDetail(t)}
                               className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
@@ -751,6 +791,132 @@ export const GlassTipListPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cetak Nota Verifikasi Tip Kaca */}
+      {printReceiptModalOpen && selectedTipForPrint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="px-6 py-3.5 bg-gray-900 text-white flex items-center justify-between print:hidden">
+              <div className="flex items-center gap-2">
+                <Scissors className="w-5 h-5 text-kuk-gold" />
+                <span className="font-bold text-sm">Nota Tip Kaca — {selectedTipForPrint.reference_code}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-kuk-maroon text-white hover:bg-kuk-maroon-700 rounded-lg text-xs font-semibold transition-colors shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak Nota</span>
+                </button>
+                <button
+                  onClick={() => setPrintReceiptModalOpen(false)}
+                  className="text-white/80 hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-6 text-xs bg-white text-gray-800">
+              <PrintHeader
+                title="TANDA TERIMA VERIFIKASI TIP POTONG KACA"
+                documentNumber={selectedTipForPrint.reference_code}
+                unitName={activeUnit?.name}
+                unitCode={activeUnit?.code}
+              />
+
+              <div className="grid grid-cols-2 gap-4 bg-gray-50/70 p-4 rounded-xl border border-gray-200">
+                <div className="space-y-1">
+                  <div className="text-gray-500 text-[11px]">Karyawan Pemotong Kaca (Cutter):</div>
+                  <div className="font-bold text-gray-900 text-sm">{selectedTipForPrint.employee?.full_name || 'Karyawan Unit'}</div>
+                  <div className="text-gray-600 font-medium">NIP: {selectedTipForPrint.employee?.employee_code || '-'}</div>
+                </div>
+                <div className="space-y-1 text-right">
+                  <div className="text-gray-500 text-[11px]">Status Verifikasi:</div>
+                  <div className="font-bold text-sm">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedTipForPrint.status === 'VERIFIED'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : selectedTipForPrint.status === 'REJECTED'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {selectedTipForPrint.status}
+                    </span>
+                  </div>
+                  {selectedTipForPrint.created_at && (
+                    <div className="text-[10px] text-gray-500">Tgl: {new Date(selectedTipForPrint.created_at).toLocaleString('id-ID')}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Rincian Pemotongan */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 font-bold text-gray-800">
+                  Rincian Pemotongan & Spesifikasi Kaca
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-gray-500">Tipe Kaca:</span>
+                    <div className="font-semibold text-gray-900 mt-0.5">{selectedTipForPrint.glass_type?.name || 'Kaca Standar'}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Dimensi & Lembar:</span>
+                    <div className="font-semibold text-gray-900 mt-0.5">
+                      {selectedTipForPrint.length_cm} × {selectedTipForPrint.height_cm} cm ({selectedTipForPrint.quantity} Lembar)
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Luas Total (m²):</span>
+                    <div className="font-mono font-bold text-gray-900 mt-0.5">{selectedTipForPrint.calculated_sqm} m²</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Harga Dasar Kaca:</span>
+                    <div className="font-mono font-bold text-gray-900 mt-0.5">{formatRupiah(selectedTipForPrint.glass_price_snapshot)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Nilai Tip */}
+              <div className="p-4 bg-kuk-maroon text-white rounded-xl flex items-center justify-between shadow-xs">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-kuk-gold font-bold">Total Nilai Tip Terverifikasi</div>
+                  <div className="text-[11px] text-white/80 mt-0.5">Formula Komisi Baku 3% dari Harga Kaca (SOP KUK)</div>
+                </div>
+                <div className="text-2xl font-black text-kuk-gold font-mono tracking-tight">
+                  {formatRupiah(selectedTipForPrint.verified_amount || selectedTipForPrint.tip_amount)}
+                </div>
+              </div>
+
+              {selectedTipForPrint.notes && (
+                <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <strong>Catatan Verifikator:</strong> {selectedTipForPrint.notes}
+                </div>
+              )}
+
+              {/* Signatures */}
+              <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-200 text-center">
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Karyawan Pemotong:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">({selectedTipForPrint.employee?.full_name || 'Cutter'})</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Kasir / Verifikator:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">(Kasir Unit)</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Kepala Toko / Manajer:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">(Manajer Unit)</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

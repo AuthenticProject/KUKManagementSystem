@@ -103,12 +103,12 @@ export const EmployeeSensitiveModal: React.FC<EmployeeSensitiveModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
       <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 bg-gray-900 text-white flex items-center justify-between">
+        <div className="px-6 py-4 bg-kuk-maroon text-white flex items-center justify-between border-b-2 border-kuk-gold">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            <ShieldCheck className="w-5 h-5 text-kuk-gold" />
             <div>
-              <h2 className="font-bold text-sm">Data Sensitif & Penggajian Karyawan</h2>
-              <p className="text-[11px] text-gray-400">{employee.full_name} ({employee.employee_code})</p>
+              <h2 className="font-display font-bold text-sm tracking-wide">Data Sensitif & Penggajian Karyawan</h2>
+              <p className="text-[11px] text-gray-200">{employee.full_name} ({employee.employee_code})</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10">

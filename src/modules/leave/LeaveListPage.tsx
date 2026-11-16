@@ -4,7 +4,26 @@ import { useAuth } from '@/contexts/AuthContext';
 import { leaveService } from '@/services/dataService';
 import type { LeaveRequest } from '@/types/models';
 import { CreateLeaveModal } from './CreateLeaveModal';
-import { CalendarDays, CheckCircle, Clock, XCircle, AlertCircle, Ban, CheckCircle2, UserCheck, Plus, FileSpreadsheet, Users, Sparkles } from 'lucide-react';
+import { PrintHeader } from '@/components/common/PrintHeader';
+import { exportToCSV } from '@/utils/exportUtils';
+import { PageHeader } from '@/components/ui';
+import {
+  CalendarDays,
+  CheckCircle,
+  Clock,
+  XCircle,
+  AlertCircle,
+  Ban,
+  CheckCircle2,
+  UserCheck,
+  Plus,
+  FileSpreadsheet,
+  Users,
+  Sparkles,
+  Printer,
+  Download,
+  X,
+} from 'lucide-react';
 
 export const LeaveListPage: React.FC = () => {
   const { activeUnit, activeUnitId } = useUnit();
@@ -33,6 +52,10 @@ export const LeaveListPage: React.FC = () => {
   const [selectedReqForCancel, setSelectedReqForCancel] = useState<LeaveRequest | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+
+  // Printable Leave Form Modal state
+  const [leaveFormModalOpen, setLeaveFormModalOpen] = useState(false);
+  const [selectedReqForPrint, setSelectedReqForPrint] = useState<LeaveRequest | null>(null);
 
   const loadData = async () => {
     if (!activeUnitId) return;
@@ -71,19 +94,31 @@ export const LeaveListPage: React.FC = () => {
   };
 
   const handleExportRecapCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'Bulan,Kode Karyawan,Nama Karyawan,Bagian,Jabatan,Kuota Bulanan,Hari Digunakan,Sisa Kuota,Status Kuota,Tanggal Terjadwal\n';
-    recapData.forEach((r) => {
-      const datesStr = (r.recorded_dates || []).join('; ');
-      csvContent += `"${r.target_month}","${r.employee_code}","${r.employee_name}","${r.department_name}","${r.position_title}","${r.quota_monthly}","${r.days_used}","${r.days_remaining}","${r.quota_status}","${datesStr}"\n`;
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Rekap_Cuti_HR_${activeUnit?.code || 'KUK'}_${recapMonth}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const headers = [
+      'Bulan',
+      'Kode Karyawan',
+      'Nama Karyawan',
+      'Bagian',
+      'Jabatan',
+      'Kuota Bulanan',
+      'Hari Digunakan',
+      'Sisa Kuota',
+      'Status Kuota',
+      'Tanggal Terjadwal',
+    ];
+    const rows = recapData.map((r) => [
+      r.target_month,
+      r.employee_code,
+      r.employee_name,
+      r.department_name,
+      r.position_title,
+      r.quota_monthly,
+      r.days_used,
+      r.days_remaining,
+      r.quota_status,
+      (r.recorded_dates || []).join('; '),
+    ]);
+    exportToCSV(`Rekap_Cuti_HR_${activeUnit?.code || 'KUK'}_${recapMonth}`, headers, rows);
   };
 
   const handleStatusChange = async (reqId: string, status: 'APPROVED' | 'REJECTED') => {
@@ -118,6 +153,23 @@ export const LeaveListPage: React.FC = () => {
 
   const filtered = requests.filter((req) => statusFilter === 'ALL' || req.status === statusFilter);
 
+  const handleExportCSV = () => {
+    const headers = ['Kode Permohonan', 'Nama Karyawan', 'Departemen', 'Jabatan', 'Target Bulan', 'Jumlah Hari', 'Tanggal Cuti', 'Alasan', 'Status'];
+    const rows = filtered.map((r) => [
+      r.id,
+      r.snapshot_employee_name,
+      r.snapshot_department_name,
+      r.snapshot_position_title,
+      r.target_month,
+      r.total_days,
+      r.dates?.map((d) => d.leave_date).join('; ') || '-',
+      r.reason,
+      r.status,
+    ]);
+    exportToCSV(`Rekap_Cuti_${activeUnit?.code || 'KUK'}_${recapMonth}`, headers, rows);
+    showToast(`Berhasil mengekspor ${filtered.length} permohonan cuti.`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
@@ -128,36 +180,37 @@ export const LeaveListPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <CalendarDays className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Manajemen Cuti Karyawan</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Permohonan cuti bulanan unit <span className="font-semibold text-kuk-maroon">{activeUnit?.name || 'Unit Aktif'}</span>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="bg-amber-50 text-amber-800 border border-amber-200 px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-            <span>Aturan Jendela: Pengajuan dibuka tgl 1 (M-1) s.d. tgl 3 (M). Admin 3: Hanya Hari Minggu.</span>
-          </div>
-          {hasPermission('leave.manage') && (
+      {/* Header Halaman */}
+      <PageHeader
+        title="Manajemen Cuti Karyawan"
+        subtitle={`Permohonan cuti bulanan & kuota operasional unit ${activeUnit?.name || 'Unit Aktif'}`}
+        icon={<CalendarDays className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Manajemen Cuti' }]}
+        unitBadge={activeUnit?.name}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setCreateModalOpen(true)}
-              className="px-3.5 py-1.5 bg-kuk-maroon hover:bg-kuk-maroon-800 text-white font-medium text-xs rounded-lg transition-colors shadow-xs flex items-center gap-1.5"
+              onClick={handleExportCSV}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
+              title="Ekspor ke CSV"
             >
-              <Plus className="w-4 h-4" />
-              <span>Ajukan Cuti Staf</span>
+              <Download className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span className="hidden sm:inline">Ekspor CSV</span>
             </button>
-          )}
-        </div>
-      </div>
+
+            {hasPermission('leave.manage') && (
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="px-4 py-2 bg-kuk-maroon hover:bg-kuk-maroon-dark text-white font-semibold text-xs sm:text-sm rounded-xl transition-colors shadow-xs flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Ajukan Cuti Staf</span>
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Error Alert Banner */}
       {error && !loading && (
@@ -394,6 +447,17 @@ export const LeaveListPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          setSelectedReqForPrint(req);
+                          setLeaveFormModalOpen(true);
+                        }}
+                        className="p-1.5 text-gray-500 hover:text-kuk-maroon hover:bg-kuk-maroon-50 rounded-lg transition-colors"
+                        title="Cetak Formulir Permohonan Cuti"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
+
                       {hasPermission('leave.manage', activeUnitId) && req.status === 'PENDING' && (
                         <>
                           <button
@@ -495,6 +559,117 @@ export const LeaveListPage: React.FC = () => {
             loadData();
           }}
         />
+      )}
+
+      {/* Modal Cetak Formulir Permohonan Cuti Resmi */}
+      {leaveFormModalOpen && selectedReqForPrint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="px-6 py-3.5 bg-gray-900 text-white flex items-center justify-between print:hidden">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-kuk-gold" />
+                <span className="font-bold text-sm">Formulir Cuti — {selectedReqForPrint.snapshot_employee_name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-kuk-maroon text-white hover:bg-kuk-maroon-700 rounded-lg text-xs font-semibold transition-colors shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak Formulir</span>
+                </button>
+                <button
+                  onClick={() => setLeaveFormModalOpen(false)}
+                  className="text-white/80 hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-6 text-xs bg-white text-gray-800">
+              <PrintHeader
+                title="SURAT PERMOHONAN CUTI RESMI"
+                documentNumber={`CUTI/${selectedReqForPrint.target_month}/${selectedReqForPrint.id.substring(0, 8)}`}
+                unitName={activeUnit?.name}
+                unitCode={activeUnit?.code}
+              />
+
+              <div className="grid grid-cols-2 gap-4 bg-gray-50/70 p-4 rounded-xl border border-gray-200">
+                <div className="space-y-1">
+                  <div className="text-gray-500 text-[11px]">Nama Pemohon (Karyawan):</div>
+                  <div className="font-bold text-gray-900 text-sm">{selectedReqForPrint.snapshot_employee_name}</div>
+                  <div className="text-gray-600 font-medium">{selectedReqForPrint.snapshot_department_name} • {selectedReqForPrint.snapshot_position_title}</div>
+                </div>
+                <div className="space-y-1 text-right">
+                  <div className="text-gray-500 text-[11px]">Target Periode Cuti:</div>
+                  <div className="font-bold text-gray-900 text-sm">Bulan {selectedReqForPrint.target_month}</div>
+                  <div>
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      selectedReqForPrint.status === 'APPROVED'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : selectedReqForPrint.status === 'REJECTED'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : selectedReqForPrint.status === 'CANCELLED'
+                        ? 'bg-gray-100 text-gray-700 border border-gray-300'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      STATUS: {selectedReqForPrint.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detail Hari Cuti & Alasan */}
+              <div className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                  <span className="text-gray-500 text-[11px] uppercase font-bold tracking-wider">Tanggal Pengambilan Cuti:</span>
+                  <span className="font-bold text-kuk-maroon">{selectedReqForPrint.total_days} Hari Kerja</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {selectedReqForPrint.dates && selectedReqForPrint.dates.map((d) => (
+                    <span key={d.id} className="px-2.5 py-1 bg-gray-100 text-gray-800 rounded font-mono text-xs font-semibold">
+                      {d.leave_date} {d.is_sunday ? '(Hari Minggu)' : ''}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-gray-100 space-y-1">
+                  <span className="text-gray-500 text-[11px] uppercase font-bold tracking-wider">Alasan Permohonan:</span>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 text-gray-800 text-xs leading-relaxed">
+                    {selectedReqForPrint.reason}
+                  </div>
+                </div>
+              </div>
+
+              {/* Note / Disclaimer */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg text-amber-900 text-[11px] space-y-0.5">
+                <div className="font-bold">Ketentuan Cuti Perusahaan:</div>
+                <div>1. Maksimal hak cuti bulanan yang dapat diajukan adalah 3 (tiga) hari kerja.</div>
+                <div>2. Cuti harus diajukan dalam jendela resmi (tanggal 1 bulan sebelumnya s.d. tanggal 3 bulan berjalan).</div>
+              </div>
+
+              {/* Signatures */}
+              <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-200 text-center">
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Pemohon / Karyawan:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">({selectedReqForPrint.snapshot_employee_name})</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Atasan / Supervisor:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">(Supervisor Unit)</div>
+                </div>
+                <div className="space-y-12">
+                  <div className="text-gray-500 text-[11px]">Kepala Toko / HRD:</div>
+                  <div className="border-b border-gray-300 w-28 mx-auto"></div>
+                  <div className="font-bold text-gray-800">(Manajer Unit)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

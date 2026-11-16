@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useUnit } from '@/contexts/UnitContext';
 import { auditService } from '@/services/dataService';
 import type { AuditLog } from '@/types/models';
+import { exportToCSV } from '@/utils/exportUtils';
+import { PageHeader } from '@/components/ui';
 import {
   ShieldAlert,
   Search,
@@ -52,18 +54,27 @@ export const AuditLogPage: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'ID,Timestamp,Tabel,Aksi,Record ID,Aktor ID,IP Address,Keterangan\n';
-    filteredLogs.forEach((l) => {
-      csvContent += `"${l.id}","${l.created_at}","${l.table_name}","${l.action}","${l.record_id || ''}","${l.actor_id || 'System'}","${l.ip_address || '-'}","${l.notes || ''}"\n`;
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Audit_Logs_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const headers = [
+      'ID',
+      'Timestamp',
+      'Tabel',
+      'Aksi',
+      'Record ID',
+      'Aktor ID',
+      'IP Address',
+      'Keterangan',
+    ];
+    const rows = filteredLogs.map((l) => [
+      l.id,
+      l.created_at,
+      l.table_name,
+      l.action,
+      l.record_id || '',
+      l.actor_id || 'System',
+      l.ip_address || '-',
+      l.notes || '',
+    ]);
+    exportToCSV(`Audit_Logs_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`, headers, rows);
   };
 
   const filteredLogs = logs.filter((log) => {
@@ -82,28 +93,24 @@ export const AuditLogPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-kuk-maroon-50 text-kuk-maroon rounded-lg">
-              <History className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Audit Trail & Jejak Mutasi Data</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Rekam jejak perubahan data, otorisasi transaksi, dan anti-spoofing audit log unit <span className="font-semibold text-kuk-maroon">{activeUnit?.name || 'Unit Aktif'}</span>
-          </p>
-        </div>
-
-        <button
-          onClick={handleExportCSV}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors"
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Ekspor Log CSV</span>
-        </button>
-      </div>
+      {/* Header Halaman */}
+      <PageHeader
+        title="Audit Trail & Jejak Mutasi Data"
+        subtitle={`Rekam jejak perubahan data, otorisasi transaksi, dan anti-spoofing audit log unit ${activeUnit?.name || 'Unit Aktif'}`}
+        icon={<History className="w-6 h-6 text-kuk-maroon" />}
+        breadcrumbs={[{ label: 'Beranda', href: '/dashboard' }, { label: 'Audit Trail' }]}
+        unitBadge={activeUnit?.name}
+        actions={
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+            title="Ekspor Log CSV"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-kuk-maroon" />
+            <span>Ekspor Log CSV</span>
+          </button>
+        }
+      />
 
       {/* Error Alert Banner */}
       {error && !loading && (

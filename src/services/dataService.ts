@@ -4,6 +4,8 @@
 // ============================================================================
 
 import { supabase } from './supabase';
+import { previewStore } from './previewStore';
+export { previewStore };
 import { calculateSpExpiryDate } from '@/utils/dateUtils';
 import type {
   Employee,
@@ -240,6 +242,14 @@ export function handleServiceCatch<T>(
 export const employeeService = {
   async getEmployeesByUnit(unitId: string): Promise<DataResponse<Employee[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getEmployees(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('employees')
@@ -260,6 +270,9 @@ export const employeeService = {
 
   async getDepartments(unitId: string): Promise<Department[]> {
     if (!unitId) return [];
+    if (isPreviewModeActive()) {
+      return previewStore.getDepartments(unitId);
+    }
     try {
       const { data, error } = await supabase
         .from('departments')
@@ -268,22 +281,19 @@ export const employeeService = {
         .eq('is_active', true)
         .order('name');
       if (error || !data || data.length === 0) {
-        return isPreviewModeActive() ? [
-          { id: 'dept-01', unit_id: unitId, code: 'GUDANG', name: 'Gudang & Logistik', is_active: true, created_at: '' },
-          { id: 'dept-02', unit_id: unitId, code: 'ADM', name: 'Administrasi & Keuangan', is_active: true, created_at: '' },
-        ] : [];
+        return previewStore.getDepartments(unitId);
       }
       return data as Department[];
     } catch {
-      return isPreviewModeActive() ? [
-        { id: 'dept-01', unit_id: unitId, code: 'GUDANG', name: 'Gudang & Logistik', is_active: true, created_at: '' },
-        { id: 'dept-02', unit_id: unitId, code: 'ADM', name: 'Administrasi & Keuangan', is_active: true, created_at: '' },
-      ] : [];
+      return previewStore.getDepartments(unitId);
     }
   },
 
   async getPositions(unitId: string): Promise<Position[]> {
     if (!unitId) return [];
+    if (isPreviewModeActive()) {
+      return previewStore.getPositions(unitId);
+    }
     try {
       const { data, error } = await supabase
         .from('positions')
@@ -292,22 +302,19 @@ export const employeeService = {
         .eq('is_active', true)
         .order('level');
       if (error || !data || data.length === 0) {
-        return isPreviewModeActive() ? [
-          { id: 'pos-01', unit_id: unitId, department_id: 'dept-01', code: 'SOPIR', title: 'Sopir & Pemotong Kaca', level: 2, is_active: true, created_at: '' },
-          { id: 'pos-02', unit_id: unitId, department_id: 'dept-02', code: 'ADM3', title: 'Admin 3 (Operasional Toko)', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
-        ] : [];
+        return previewStore.getPositions(unitId);
       }
       return data as Position[];
     } catch {
-      return isPreviewModeActive() ? [
-        { id: 'pos-01', unit_id: unitId, department_id: 'dept-01', code: 'SOPIR', title: 'Sopir & Pemotong Kaca', level: 2, is_active: true, created_at: '' },
-        { id: 'pos-02', unit_id: unitId, department_id: 'dept-02', code: 'ADM3', title: 'Admin 3 (Operasional Toko)', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
-      ] : [];
+      return previewStore.getPositions(unitId);
     }
   },
 
   async getWorkSchedules(unitId: string): Promise<WorkSchedule[]> {
     if (!unitId) return [];
+    if (isPreviewModeActive()) {
+      return previewStore.getWorkSchedules(unitId);
+    }
     try {
       const { data, error } = await supabase
         .from('work_schedules')
@@ -315,20 +322,24 @@ export const employeeService = {
         .eq('unit_id', unitId)
         .eq('is_active', true);
       if (error || !data || data.length === 0) {
-        return isPreviewModeActive() ? [
-          { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
-        ] : [];
+        return previewStore.getWorkSchedules(unitId);
       }
       return data as WorkSchedule[];
     } catch {
-      return isPreviewModeActive() ? [
-        { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
-      ] : [];
+      return previewStore.getWorkSchedules(unitId);
     }
   },
 
   async getSensitiveData(unitId: string, employeeId: string): Promise<DataResponse<EmployeeSensitiveData | null>> {
     if (!unitId || !employeeId) return { success: true, data: null, isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getSensitiveData(unitId, employeeId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('employee_sensitive_data')
@@ -357,6 +368,9 @@ export const employeeService = {
 
   async saveEmployee(unitId: string, employee: Partial<Employee>): Promise<{ success: boolean; message: string }> {
     if (!unitId) return { success: false, message: 'Unit aktif belum dipilih.' };
+    if (isPreviewModeActive()) {
+      return previewStore.saveEmployee(unitId, employee);
+    }
     try {
       // Remediation 4: Whitelist strictly defined fields to prevent mass assignment
       const sanitizedPayload: Record<string, any> = {
@@ -404,6 +418,9 @@ export const employeeService = {
 
   async saveSensitiveData(unitId: string, data: Partial<EmployeeSensitiveData>): Promise<{ success: boolean; message: string }> {
     if (!unitId) return { success: false, message: 'Unit aktif belum dipilih.' };
+    if (isPreviewModeActive()) {
+      return previewStore.saveSensitiveData(unitId, data);
+    }
     try {
       const { error } = await supabase.from('employee_sensitive_data').upsert({ ...data, unit_id: unitId, updated_at: new Date().toISOString() });
       if (error) throw error;
@@ -415,10 +432,10 @@ export const employeeService = {
 
   async updateEmployeeStatus(unitId: string, employeeId: string, status: EmployeeStatus): Promise<{ success: boolean; message: string }> {
     if (!unitId || !employeeId) return { success: false, message: 'Unit dan ID karyawan wajib ditentukan.' };
+    if (isPreviewModeActive() || employeeId.startsWith('emp-')) {
+      return previewStore.updateEmployeeStatus(unitId, employeeId, status);
+    }
     try {
-      if (employeeId.startsWith('emp-')) {
-        return { success: true, message: `[SIMULASI PREVIEW] Status karyawan lokal diperbarui ke ${status} dalam memori (TIDAK tersimpan ke database).` };
-      }
       const { error } = await supabase
         .from('employees')
         .update({ status, updated_at: new Date().toISOString() })
@@ -433,15 +450,58 @@ export const employeeService = {
 
   async getEmployeeJobHistory(unitId: string, employeeId: string): Promise<DataResponse<EmployeeJobHistory[]>> {
     if (!unitId || !employeeId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getEmployeeJobHistory(employeeId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('employee_job_history')
         .select('*, from_unit:units!from_unit_id(name), to_unit:units!to_unit_id(name), from_position:positions!from_position_id(title), to_position:positions!to_position_id(title)')
         .eq('employee_id', employeeId)
         .order('effective_date', { ascending: false });
-      return resolveDataResponse(result, () => getPreviewJobHistory(employeeId), []);
+      return resolveDataResponse(result, () => previewStore.getEmployeeJobHistory(employeeId), []);
     } catch (err: any) {
-      return handleServiceCatch(err, () => getPreviewJobHistory(employeeId), []);
+      return handleServiceCatch(err, () => previewStore.getEmployeeJobHistory(employeeId), []);
+    }
+  },
+
+  async recordJobTransition(
+    unitId: string,
+    payload: {
+      employee_id: string;
+      to_unit_id: string;
+      to_position_id: string;
+      effective_date: string;
+      transition_type: 'PROMOTION' | 'MUTATION' | 'DEMOTION' | 'HIRE';
+      notes?: string;
+    }
+  ): Promise<{ success: boolean; message: string; history?: EmployeeJobHistory }> {
+    if (!unitId || !payload.employee_id) return { success: false, message: 'Unit dan ID karyawan wajib ditentukan.' };
+    if (isPreviewModeActive()) {
+      return previewStore.recordJobTransition(unitId, payload);
+    }
+    try {
+      const { data, error } = await supabase
+        .from('employee_job_history')
+        .insert({
+          employee_id: payload.employee_id,
+          to_unit_id: payload.to_unit_id,
+          to_position_id: payload.to_position_id,
+          effective_date: payload.effective_date,
+          transition_type: payload.transition_type,
+          notes: payload.notes || null,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, message: 'Riwayat mutasi jabatan berhasil disimpan.', history: data };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Gagal menyimpan riwayat mutasi jabatan.' };
     }
   },
 
@@ -449,6 +509,9 @@ export const employeeService = {
     if (!unitId || !employeeId) return { success: false, message: 'Unit dan ID karyawan wajib ditentukan.' };
     if (!newPin || newPin.length !== 6 || !/^[0-9]{6}$/.test(newPin)) {
       return { success: false, message: 'Format PIN tidak valid: Wajib tepat 6 digit angka numerik.' };
+    }
+    if (isPreviewModeActive()) {
+      return previewStore.resetKioskPin(unitId, employeeId, newPin);
     }
     try {
       const { data, error } = await supabase.rpc('reset_employee_kiosk_pin', {
@@ -473,6 +536,14 @@ export const employeeService = {
 export const leaveService = {
   async getLeaveRequestsByUnit(unitId: string): Promise<DataResponse<LeaveRequest[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getLeaveRequests(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('leave_requests')
@@ -488,6 +559,9 @@ export const leaveService = {
 
   async updateLeaveStatus(unitId: string, requestId: string, status: 'APPROVED' | 'REJECTED', reason?: string): Promise<{ success: boolean; message: string }> {
     if (!unitId) return { success: false, message: 'Unit aktif belum dipilih.' };
+    if (isPreviewModeActive() || requestId.startsWith('leave-')) {
+      return previewStore.updateLeaveStatus(unitId, requestId, status, reason);
+    }
     try {
       const { error } = await supabase
         .from('leave_requests')
@@ -502,6 +576,9 @@ export const leaveService = {
   },
 
   async cancelLeaveAtomic(unitId: string, requestId: string, cancelledBy: string, reason: string): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive()) {
+      return previewStore.updateLeaveStatus(unitId, requestId, 'CANCELLED', reason);
+    }
     try {
       const { data, error } = await supabase.rpc('cancel_leave_request_atomic', {
         p_unit_id: unitId,
@@ -707,16 +784,19 @@ export const leaveService = {
   },
 
   async submitLeaveRequestWithPin(
-    _unitId: string,
-    _employeeCode: string,
-    _pin: string,
-    _payload: {
+    unitId: string,
+    employeeCode: string,
+    pin: string,
+    payload: {
       target_month: string;
       total_days: number;
       reason: string;
       dates: string[];
     }
   ): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive()) {
+      return previewStore.submitLeaveRequestWithPin(unitId, employeeCode, pin, payload);
+    }
     // BLOCKED: Skema database Supabase v3.1.0 saat ini belum memiliki RPC publik atomic untuk autentikasi PIN
     // dan pengajuan cuti mandiri (submit_leave_request_atomic). Dilarang melakukan bypass via direct query/insert tanpa otorisasi backend.
     return {
@@ -732,6 +812,14 @@ export const leaveService = {
 export const violationService = {
   async getViolationsByUnit(unitId: string): Promise<DataResponse<ViolationRecord[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getViolations(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('violation_records')
@@ -747,6 +835,14 @@ export const violationService = {
 
   async getWarningLettersByUnit(unitId: string): Promise<DataResponse<WarningLetter[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getWarningLetters(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('warning_letters')
@@ -761,6 +857,9 @@ export const violationService = {
   },
 
   async recordViolation(unitId: string, record: Partial<ViolationRecord>): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive()) {
+      return previewStore.recordViolation(unitId, record);
+    }
     try {
       const { error } = await supabase.from('violation_records').insert([{ ...record, unit_id: unitId }]);
       if (error) throw error;
@@ -771,6 +870,9 @@ export const violationService = {
   },
 
   async issueWarningLetter(unitId: string, sp: Partial<WarningLetter>): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive()) {
+      return previewStore.issueWarningLetter(unitId, sp);
+    }
     try {
       // 6-Month enterprise validity calculation with end-of-month clamp
       const issuedDateStr = sp.issued_date || new Date().toISOString().split('T')[0];
@@ -797,6 +899,14 @@ export const violationService = {
 export const attendanceService = {
   async getBriefingSessions(unitId: string): Promise<DataResponse<BriefingSession[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getBriefingSessions(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('briefing_sessions')
@@ -812,6 +922,14 @@ export const attendanceService = {
 
   async getDailyAttendance(unitId: string, date: string): Promise<DataResponse<AttendanceDailyRecord[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getDailyAttendance(unitId, date),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('attendance_daily_records')
@@ -826,6 +944,9 @@ export const attendanceService = {
   },
 
   async createBriefingSession(unitId: string, session: Partial<BriefingSession>): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive()) {
+      return previewStore.createBriefingSession(unitId, session);
+    }
     try {
       const { error } = await supabase.from('briefing_sessions').insert([{ ...session, unit_id: unitId }]);
       if (error) throw error;
@@ -841,10 +962,10 @@ export const attendanceService = {
     updates: { check_in_time?: string; check_out_time?: string; status: AttendanceStatus; notes?: string }
   ): Promise<{ success: boolean; message: string }> {
     if (!unitId || !recordId) return { success: false, message: 'Unit dan ID presensi wajib ditentukan.' };
+    if (isPreviewModeActive() || recordId.startsWith('att-')) {
+      return previewStore.correctAttendance(unitId, recordId, updates);
+    }
     try {
-      if (recordId.startsWith('att-')) {
-        return { success: true, message: '[SIMULASI PREVIEW] Presensi lokal dikoreksi dalam memori (TIDAK tersimpan ke database).' };
-      }
       const { error } = await supabase
         .from('attendance_daily_records')
         .update({
@@ -857,6 +978,36 @@ export const attendanceService = {
       return { success: true, message: 'Koreksi presensi berhasil disimpan.' };
     } catch (err: any) {
       return { success: false, message: err?.message || 'Gagal menyimpan koreksi presensi.' };
+    }
+  },
+
+  async importFingerprintBatch(
+    unitId: string,
+    records: Array<{
+      employee_id: string;
+      attendance_date: string;
+      check_in_time?: string;
+      check_out_time?: string;
+      status?: AttendanceStatus;
+      late_minutes?: number;
+      source?: 'FINGERPRINT';
+    }>
+  ): Promise<{ success: boolean; count: number; message: string }> {
+    if (!unitId || !records || records.length === 0) {
+      return { success: false, count: 0, message: 'Tidak ada data presensi yang valid untuk diimpor.' };
+    }
+    if (isPreviewModeActive()) {
+      return previewStore.importFingerprintBatch(unitId, records);
+    }
+    try {
+      const { data, error } = await supabase
+        .from('attendance_daily_records')
+        .upsert(records.map(r => ({ ...r, unit_id: unitId, source: 'FINGERPRINT' })))
+        .select();
+      if (error) throw error;
+      return { success: true, count: data?.length || records.length, message: `Berhasil mengimpor ${records.length} rekaman presensi.` };
+    } catch (err: any) {
+      return { success: false, count: 0, message: err?.message || 'Gagal menyimpan rekaman presensi.' };
     }
   },
 
@@ -945,7 +1096,7 @@ export const attendanceService = {
 // ----------------------------------------------------------------------------
 export const glassTipService = {
   async getGlassTypes(unitId: string): Promise<GlassType[]> {
-    if (!unitId) return isPreviewModeActive() ? getPreviewGlassTypes(unitId) : [];
+    if (!unitId || isPreviewModeActive()) return getPreviewGlassTypes(unitId);
     try {
       const { data, error } = await supabase
         .from('glass_types')
@@ -961,7 +1112,7 @@ export const glassTipService = {
   },
 
   async getGlassTipRates(unitId: string): Promise<GlassTipRate[]> {
-    if (!unitId) return isPreviewModeActive() ? getPreviewGlassRates(unitId) : [];
+    if (!unitId || isPreviewModeActive()) return getPreviewGlassRates(unitId);
     try {
       const { data, error } = await supabase
         .from('glass_tip_rates')
@@ -1001,16 +1152,7 @@ export const glassTipService = {
       return { success: false, message: 'Format PIN tidak valid: Wajib 6 digit angka.' };
     }
     if (isPreviewModeActive()) {
-      const sqm = Math.round(((payload.length_cm * payload.height_cm) / 10000.0) * payload.quantity * 10000) / 10000;
-      const tipAmount = Math.ceil((sqm * 15000) / 1000) * 1000;
-      const refCode = `PREVIEW-TIP-${unitId.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`;
-      return {
-        success: true,
-        message: 'Mode Pratinjau Terisolasi: Pengajuan nota tip potong kaca disimulasikan secara lokal.',
-        reference_code: refCode,
-        calculated_sqm: sqm,
-        estimated_tip: tipAmount,
-      };
+      return previewStore.submitGlassTip(unitId, payload);
     }
     try {
       const { data, error } = await supabase.rpc('submit_glass_tip_atomic', {
@@ -1044,6 +1186,14 @@ export const glassTipService = {
   },
   async getGlassTipsByUnit(unitId: string): Promise<DataResponse<GlassTip[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getGlassTips(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('glass_tips')
@@ -1064,10 +1214,13 @@ export const glassTipService = {
     action: 'VERIFY' | 'REJECT',
     notes: string
   ): Promise<{ success: boolean; message: string }> {
+    if (!unitId || !tipId) {
+      return { success: false, message: 'Unit dan ID nota tip wajib ditentukan.' };
+    }
+    if (isPreviewModeActive() || tipId.startsWith('tip-') || tipId.startsWith('TIP-') || tipId.startsWith('PREVIEW-')) {
+      return previewStore.verifyGlassTip(unitId, tipId, verifiedAmount, action, notes);
+    }
     try {
-      if (!unitId || !tipId) {
-        return { success: false, message: 'Unit dan ID nota tip wajib ditentukan.' };
-      }
 
       if (action !== 'VERIFY' && action !== 'REJECT') {
         return { success: false, message: 'Aksi verifikasi harus VERIFY atau REJECT.' };
@@ -1183,6 +1336,14 @@ export const glassTipService = {
 export const payrollService = {
   async getPayrollPeriods(unitId: string): Promise<DataResponse<PayrollPeriod[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getPayrollPeriods(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('payroll_periods')
@@ -1198,6 +1359,14 @@ export const payrollService = {
 
   async getPayrollRecords(periodId: string): Promise<DataResponse<PayrollRecord[]>> {
     if (!periodId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive() || periodId.startsWith('pp-') || periodId.startsWith('pay-')) {
+      return {
+        success: true,
+        data: getPreviewPayrollRecords(periodId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('payroll_records')
@@ -1211,6 +1380,9 @@ export const payrollService = {
   },
 
   async finalizePayrollAtomic(unitId: string, periodId: string, finalizedBy: string): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive() || periodId.startsWith('pp-') || periodId.startsWith('pay-')) {
+      return previewStore.finalizePayrollAtomic(unitId, periodId, finalizedBy);
+    }
     try {
       const { data, error } = await supabase.rpc('calculate_and_finalize_payroll_atomic', {
         p_unit_id: unitId,
@@ -1237,11 +1409,7 @@ export const payrollService = {
       return { success: false, message: 'Semua informasi periode penggajian wajib diisi.' };
     }
     if (isPreviewModeActive()) {
-      return {
-        success: true,
-        message: `[SIMULASI PREVIEW] Periode penggajian "${payload.period_name}" berhasil dibuat secara lokal (Status: DRAFT).`,
-        period_id: `pay-period-${Date.now()}`,
-      };
+      return previewStore.createPayrollPeriod(unitId, payload);
     }
     try {
       const code = `PAY-${unitId.substring(0, 4).toUpperCase()}-${payload.start_date.substring(0, 7).replace('-', '')}`;
@@ -1292,6 +1460,14 @@ export const payrollService = {
 export const fleetService = {
   async getVehiclesByUnit(unitId: string): Promise<DataResponse<Vehicle[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getVehicles(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('vehicles')
@@ -1307,6 +1483,14 @@ export const fleetService = {
 
   async getBorrowingRequests(unitId: string): Promise<DataResponse<VehicleBorrowingRequest[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getBorrowingRequests(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       const result = await supabase
         .from('vehicle_borrowing_requests')
@@ -1327,14 +1511,20 @@ export const fleetService = {
     action: 'APPROVE' | 'REJECT' = 'APPROVE',
     rejectionReason?: string
   ): Promise<{ success: boolean; message: string }> {
+    if (!unitId || !requestId) {
+      return { success: false, message: 'Unit dan ID permohonan peminjaman armada wajib ditentukan.' };
+    }
+    if (action !== 'APPROVE' && action !== 'REJECT') {
+      return { success: false, message: 'Aksi persetujuan armada harus APPROVE atau REJECT.' };
+    }
+    if (isPreviewModeActive() || requestId.startsWith('vbr-') || requestId.startsWith('FLEET-') || requestId.startsWith('PREVIEW-')) {
+      if (action === 'APPROVE') {
+        return previewStore.approveBorrowing(unitId, requestId, _approverId);
+      } else {
+        return previewStore.rejectBorrowing(unitId, requestId, rejectionReason);
+      }
+    }
     try {
-      if (!unitId || !requestId) {
-        return { success: false, message: 'Unit dan ID permohonan peminjaman armada wajib ditentukan.' };
-      }
-
-      if (action !== 'APPROVE' && action !== 'REJECT') {
-        return { success: false, message: 'Aksi persetujuan armada harus APPROVE atau REJECT.' };
-      }
 
       const { data, error } = await supabase.rpc('approve_vehicle_atomic', {
         p_unit_id: unitId,
@@ -1367,6 +1557,9 @@ export const fleetService = {
   },
 
   async saveVehicle(unitId: string, vehicle: Partial<Vehicle>): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive()) {
+      return previewStore.saveVehicle(unitId, vehicle);
+    }
     try {
       const { error } = await supabase.from('vehicles').insert([{ ...vehicle, unit_id: unitId }]);
       if (error) throw error;
@@ -1394,12 +1587,7 @@ export const fleetService = {
       return { success: false, message: 'Semua informasi wajib peminjaman armada harus diisi.' };
     }
     if (isPreviewModeActive()) {
-      const bookingCode = `PREVIEW-FLEET-${unitId.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`;
-      return {
-        success: true,
-        message: 'Mode Pratinjau Terisolasi: Pengajuan peminjaman armada disimulasikan secara lokal (Status: PENDING).',
-        booking_code: bookingCode,
-      };
+      return previewStore.bookVehicle(unitId, payload);
     }
     try {
       const { data, error } = await supabase.rpc('book_vehicle_atomic', {
@@ -1439,10 +1627,10 @@ export const fleetService = {
 
   async updateVehicleStatus(unitId: string, vehicleId: string, status: VehicleStatus): Promise<{ success: boolean; message: string }> {
     if (!unitId || !vehicleId) return { success: false, message: 'Unit dan ID armada wajib ditentukan.' };
+    if (isPreviewModeActive() || vehicleId.startsWith('veh-') || vehicleId.startsWith('FORKLIFT')) {
+      return previewStore.updateVehicleStatus(unitId, vehicleId, status);
+    }
     try {
-      if (vehicleId.startsWith('veh-')) {
-        return { success: true, message: `[SIMULASI PREVIEW] Status armada lokal diperbarui ke ${status} dalam memori (TIDAK tersimpan ke database).` };
-      }
       const { error } = await supabase
         .from('vehicles')
         .update({ status })
@@ -1473,21 +1661,11 @@ export const fleetService = {
       return { success: false, message: 'Unit, ID peminjaman, dan armada wajib ditentukan.' };
     }
 
-    // Penilaian Kelaikan Operasional oleh Petugas Pemeriksa:
-    // Berdasarkan asas keselamatan operasional, kendaraan yang dinyatakan tidak layak oleh petugas pemeriksa
-    // mutlak diblokir dari peminjaman dan dialihkan ke status MAINTENANCE.
+    if (isPreviewModeActive() || payload.requestId.startsWith('vbr-') || payload.requestId.startsWith('FLEET-')) {
+      return previewStore.returnVehicle(unitId, payload);
+    }
     const isUnfitForUse = payload.operational_readiness === 'NEEDS_MAINTENANCE';
     const targetStatus: VehicleStatus = isUnfitForUse ? 'MAINTENANCE' : 'AVAILABLE';
-
-    if (isPreviewModeActive() || payload.requestId.startsWith('vbr-')) {
-      await fleetService.updateVehicleStatus(unitId, payload.vehicleId, targetStatus);
-      return {
-        success: true,
-        message: isUnfitForUse
-          ? `[SIMULASI PREVIEW] Pengembalian armada dicatat. Berdasarkan penilaian petugas (${payload.inspector_name || 'Petugas'}), armada dinyatakan TIDAK LAYAK JALAN dan dialihkan ke MAINTENANCE.`
-          : '[SIMULASI PREVIEW] Pengembalian armada dicatat. Berdasarkan penilaian petugas, armada dinyatakan LAYAK OPERASIONAL dan berstatus AVAILABLE.',
-      };
-    }
     try {
       // 1. Catat inspeksi kondisi fisik armada saat masuk kembali
       const inspectionData = {
@@ -1540,6 +1718,11 @@ export const fleetService = {
 
   async getVehicleInspections(unitId: string, vehicleId?: string): Promise<DataResponse<VehicleInspection[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      let items = getPreviewVehicleInspections(unitId);
+      if (vehicleId) items = items.filter(i => i.vehicle_id === vehicleId);
+      return { success: true, data: items, isFixture: true, source: 'MOCK' };
+    }
     try {
       let query = supabase
         .from('vehicle_condition_inspections')
@@ -1568,6 +1751,14 @@ export const financeService = {
     filters?: { category?: string; status?: string; month?: string }
   ): Promise<DataResponse<CashExpense[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: previewStore.getCashExpenses(unitId),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       let query = supabase
         .from('cash_expenses')
@@ -1607,11 +1798,12 @@ export const financeService = {
     expense_number?: string;
     auto_approved?: boolean;
   }> {
-    if (!unitId || !payload.amount || !payload.description || !payload.recipient_name) {
-      return { success: false, message: 'Unit, nominal pengeluaran, penerima, dan deskripsi wajib diisi.' };
+    if (!unitId) return { success: false, message: 'Unit aktif belum dipilih.' };
+    if (payload.amount === undefined || payload.amount === null || payload.amount <= 0) {
+      return { success: false, message: 'Validasi Gagal: Nominal pengeluaran harus lebih besar dari Rp0.' };
     }
-    if (payload.amount <= 0) {
-      return { success: false, message: 'Nominal pengeluaran harus lebih besar dari Rp0.' };
+    if (!payload.description || !payload.recipient_name) {
+      return { success: false, message: 'Unit, nominal pengeluaran, penerima, dan deskripsi wajib diisi.' };
     }
 
     try {
@@ -1622,13 +1814,7 @@ export const financeService = {
       const expNum = `KAS-${unitId.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`;
 
       if (isPreviewModeActive()) {
-        const formattedNominal = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(payload.amount);
-        return {
-          success: true,
-          message: `[SIMULASI PREVIEW] Pengeluaran kas ${formattedNominal} berhasil dicatat (Status: PENDING Otorisasi Manajer).`,
-          expense_number: `KAS-PREVIEW-${Date.now().toString().slice(-6)}`,
-          auto_approved: false,
-        };
+        return previewStore.recordExpense(unitId, payload);
       }
 
       const { data, error } = await supabase
@@ -1677,11 +1863,12 @@ export const financeService = {
     if (!unitId || !expenseId) {
       return { success: false, message: 'Unit dan ID pengeluaran wajib ditentukan.' };
     }
-    if (isPreviewModeActive() || expenseId.startsWith('exp-')) {
-      return {
-        success: true,
-        message: `[SIMULASI PREVIEW] Pengeluaran kas berhasil ${action === 'APPROVE' ? 'disetujui' : 'ditolak'} oleh ${approverName}.`,
-      };
+    if (isPreviewModeActive() || expenseId.startsWith('exp-') || expenseId.startsWith('KAS-')) {
+      if (action === 'APPROVE') {
+        return previewStore.approveExpense(unitId, expenseId, approverName);
+      } else {
+        return previewStore.rejectExpense(unitId, expenseId, reason);
+      }
     }
     try {
       const { error } = await supabase
@@ -1748,6 +1935,14 @@ export const financeService = {
 // ----------------------------------------------------------------------------
 export const auditService = {
   async getAuditLogs(unitId?: string, filters?: { action?: string; tableName?: string }): Promise<DataResponse<AuditLog[]>> {
+    if (isPreviewModeActive()) {
+      return {
+        success: true,
+        data: getPreviewAuditLogs(unitId || '00000000-0000-0000-0000-000000000001'),
+        isFixture: true,
+        source: 'MOCK',
+      };
+    }
     try {
       let query = supabase
         .from('audit_logs')
@@ -1782,6 +1977,15 @@ export const auditService = {
 // ----------------------------------------------------------------------------
 export const systemService = {
   async getUsers(): Promise<DataResponse<UserAccount[]>> {
+    if (isPreviewModeActive()) {
+      return {
+        data: getPreviewUsers(),
+        error: null,
+        isFixture: true,
+        source: 'MOCK',
+        success: true,
+      };
+    }
     try {
       const { data: profiles, error } = await supabase
         .from('profiles')
@@ -1851,10 +2055,10 @@ export const systemService = {
   },
 
   async saveUserRole(userId: string, role: string, units: string[]): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive() || userId.startsWith('user-') || userId.startsWith('demo-')) {
+      return { success: true, message: '[SIMULASI PREVIEW] Hak akses pengguna lokal diperbarui dalam memori (TIDAK tersimpan ke database).' };
+    }
     try {
-      if (userId.startsWith('user-')) {
-        return { success: true, message: '[SIMULASI PREVIEW] Hak akses pengguna lokal diperbarui dalam memori (TIDAK tersimpan ke database).' };
-      }
       // Remediation 2: Gunakan RPC assign_user_roles_atomic menggantikan tabel non-eksisten user_profiles
       const { data, error } = await supabase.rpc('assign_user_roles_atomic', {
         p_target_user_id: userId,
@@ -1872,6 +2076,12 @@ export const systemService = {
   },
 
   async getUnits(): Promise<{ id: string; code: string; name: string; type: string }[]> {
+    if (isPreviewModeActive()) {
+      return [
+        { id: '00000000-0000-0000-0000-000000000001', code: 'TB-LATANSA', name: 'TB KUK La Tansa', type: 'STORE' },
+        { id: '00000000-0000-0000-0000-000000000002', code: 'KUK-PALEN', name: 'KUK Palen', type: 'STORE' },
+      ];
+    }
     try {
       const { data, error } = await supabase
         .from('units')
@@ -1898,70 +2108,226 @@ export const systemService = {
 
   async getDashboardSummary(unitId: string): Promise<any> {
     const isPusat = !unitId || unitId === 'all' || unitId === '00000000-0000-0000-0000-000000000000';
-    const effectiveUnit = isPusat ? '00000000-0000-0000-0000-000000000001' : unitId;
+    const targetUnits = isPusat
+      ? ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002']
+      : [unitId];
 
-    const [empRes, leaveRes, tipRes, fleetRes, violRes, attRes, payRes] = await Promise.all([
-      employeeService.getEmployeesByUnit(effectiveUnit),
-      leaveService.getLeaveRequestsByUnit(effectiveUnit),
-      glassTipService.getGlassTipsByUnit(effectiveUnit),
-      fleetService.getBorrowingRequests(effectiveUnit),
-      violationService.getViolationsByUnit(effectiveUnit),
-      attendanceService.getDailyAttendance(effectiveUnit, new Date().toISOString().split('T')[0]),
-      payrollService.getPayrollPeriods(effectiveUnit),
-    ]);
+    const todayStr = new Date().toISOString().split('T')[0];
 
-    const emps = empRes.data || [];
-    const activeEmps = emps.filter(e => e.status === 'ACTIVE').length;
-    const inactiveEmps = emps.filter(e => e.status !== 'ACTIVE').length;
+    const results = await Promise.all(
+      targetUnits.map(async (uId) => {
+        const [empRes, leaveRes, tipRes, fleetRes, vehRes, violRes, wlRes, attRes, payRes, finRes] = await Promise.all([
+          employeeService.getEmployeesByUnit(uId),
+          leaveService.getLeaveRequestsByUnit(uId),
+          glassTipService.getGlassTipsByUnit(uId),
+          fleetService.getBorrowingRequests(uId),
+          fleetService.getVehiclesByUnit(uId),
+          violationService.getViolationsByUnit(uId),
+          violationService.getWarningLettersByUnit(uId),
+          attendanceService.getDailyAttendance(uId, todayStr),
+          payrollService.getPayrollPeriods(uId),
+          financeService.getExpensesByUnit(uId),
+        ]);
+        return {
+          unitId: uId,
+          empRes,
+          leaveRes,
+          tipRes,
+          fleetRes,
+          vehRes,
+          violRes,
+          wlRes,
+          attRes,
+          payRes,
+          finRes,
+        };
+      })
+    );
 
-    const pendingLeaves = (leaveRes.data || []).filter(l => l.status === 'PENDING').length;
-    const approvedLeaves = (leaveRes.data || []).filter(l => l.status === 'APPROVED').length;
+    // Aggregate across target units
+    let totalEmployees = 0;
+    let activeEmployees = 0;
+    let inactiveEmployees = 0;
+    const departmentBreakdown: Record<string, number> = {};
 
-    const pendingTips = (tipRes.data || []).filter(t => t.status === 'PENDING').length;
-    const verifiedTips = (tipRes.data || []).filter(t => t.status === 'VERIFIED');
-    const totalVerifiedTipAmount = verifiedTips.reduce((sum, t) => sum + (t.verified_amount || t.tip_amount || 0), 0);
+    let pendingLeaves = 0;
+    let approvedLeaves = 0;
+    let totalLeaves = 0;
 
-    const pendingFleet = (fleetRes.data || []).filter(f => f.status === 'PENDING').length;
-    const approvedFleet = (fleetRes.data || []).filter(f => f.status === 'APPROVED').length;
+    let pendingTips = 0;
+    let verifiedTipCount = 0;
+    let totalVerifiedTipAmount = 0;
 
-    const todayAtt = attRes.data || [];
-    const presentCount = todayAtt.filter(a => a.status === 'PRESENT').length;
-    const lateCount = todayAtt.filter(a => a.status === 'LATE').length;
-    const absentCount = todayAtt.filter(a => a.status === 'ABSENT').length;
-    const permitCount = todayAtt.filter(a => a.status === 'PERMIT' || a.status === 'SICK').length;
+    let pendingFleet = 0;
+    let approvedFleet = 0;
+    let totalFleetRequests = 0;
+    let vehiclesAvailable = 0;
+    let vehiclesInUse = 0;
+    let vehiclesMaintenance = 0;
+    let totalVehicles = 0;
 
-    const openPayroll = (payRes.data || []).find(p => p.status === 'DRAFT' || p.status === 'CALCULATED');
+    let totalViolations = 0;
+    let totalWarningLetters = 0;
 
-    const isAnyFixture =
-      empRes.isFixture ||
-      leaveRes.isFixture ||
-      tipRes.isFixture ||
-      fleetRes.isFixture ||
-      violRes.isFixture ||
-      attRes.isFixture ||
-      payRes.isFixture;
+    let presentAttendance = 0;
+    let lateAttendance = 0;
+    let absentAttendance = 0;
+    let permitAttendance = 0;
+    let totalAttendanceRecorded = 0;
 
-    const isAnyError =
-      !empRes.success ||
-      !leaveRes.success ||
-      !tipRes.success ||
-      !fleetRes.success ||
-      !violRes.success ||
-      !attRes.success ||
-      !payRes.success;
+    let pendingExpenses = 0;
+    let totalApprovedExpenses = 0;
 
-    const errorMsg = isAnyError
-      ? (empRes.error || leaveRes.error || tipRes.error || fleetRes.error || 'Sebagian metrik data gagal dimuat dari server.')
-      : null;
+    let openPayrollPeriod = 'Tidak Ada Periode Terbuka';
+    let openPayrollStatus = 'N/A';
+
+    let isAnyFixture = false;
+    let isAnyError = false;
+    let errorMsg: string | null = null;
+
+    results.forEach((r) => {
+      const emps = r.empRes.data || [];
+      totalEmployees += emps.length;
+      emps.forEach((e) => {
+        if (e.status === 'ACTIVE') activeEmployees++;
+        else inactiveEmployees++;
+        const dept = e.department?.name || 'Operasional';
+        departmentBreakdown[dept] = (departmentBreakdown[dept] || 0) + 1;
+      });
+
+      const leaves = r.leaveRes.data || [];
+      totalLeaves += leaves.length;
+      pendingLeaves += leaves.filter((l) => l.status === 'PENDING').length;
+      approvedLeaves += leaves.filter((l) => l.status === 'APPROVED').length;
+
+      const tips = r.tipRes.data || [];
+      pendingTips += tips.filter((t) => t.status === 'PENDING').length;
+      const verified = tips.filter((t) => t.status === 'VERIFIED');
+      verifiedTipCount += verified.length;
+      totalVerifiedTipAmount += verified.reduce(
+        (sum, t) => sum + (t.verified_amount || t.tip_amount || 0),
+        0
+      );
+
+      const fleetRequests = r.fleetRes.data || [];
+      totalFleetRequests += fleetRequests.length;
+      pendingFleet += fleetRequests.filter((f) => f.status === 'PENDING').length;
+      approvedFleet += fleetRequests.filter((f) => f.status === 'APPROVED').length;
+
+      const vehs = r.vehRes.data || [];
+      totalVehicles += vehs.length;
+      vehs.forEach((v) => {
+        if (v.status === 'AVAILABLE') vehiclesAvailable++;
+        else if (v.status === 'BORROWED') vehiclesInUse++;
+        else if (v.status === 'MAINTENANCE') vehiclesMaintenance++;
+      });
+
+      totalViolations += (r.violRes.data || []).length;
+      totalWarningLetters += (r.wlRes.data || []).length;
+
+      const atts = r.attRes.data || [];
+      totalAttendanceRecorded += atts.length;
+      presentAttendance += atts.filter((a) => a.status === 'PRESENT').length;
+      lateAttendance += atts.filter((a) => a.status === 'LATE').length;
+      absentAttendance += atts.filter((a) => a.status === 'ABSENT').length;
+      permitAttendance += atts.filter((a) => a.status === 'PERMIT' || a.status === 'SICK').length;
+
+      const expenses = r.finRes.data || [];
+      pendingExpenses += expenses.filter((ex) => ex.approval_status === 'PENDING').length;
+      totalApprovedExpenses += expenses
+        .filter((ex) => ex.approval_status === 'APPROVED')
+        .reduce((sum, ex) => sum + (ex.amount || 0), 0);
+
+      const openPay = (r.payRes.data || []).find((p) => p.status === 'DRAFT' || p.status === 'CALCULATED');
+      if (openPay && openPayrollPeriod === 'Tidak Ada Periode Terbuka') {
+        openPayrollPeriod = openPay.period_name;
+        openPayrollStatus = openPay.status;
+      }
+
+      if (
+        r.empRes.isFixture ||
+        r.leaveRes.isFixture ||
+        r.tipRes.isFixture ||
+        r.fleetRes.isFixture ||
+        r.violRes.isFixture ||
+        r.attRes.isFixture ||
+        r.payRes.isFixture ||
+        r.finRes.isFixture
+      ) {
+        isAnyFixture = true;
+      }
+
+      if (
+        !r.empRes.success ||
+        !r.leaveRes.success ||
+        !r.tipRes.success ||
+        !r.fleetRes.success ||
+        !r.violRes.success ||
+        !r.attRes.success ||
+        !r.payRes.success ||
+        !r.finRes.success
+      ) {
+        isAnyError = true;
+        if (!errorMsg) {
+          errorMsg =
+            r.empRes.error ||
+            r.leaveRes.error ||
+            r.tipRes.error ||
+            r.fleetRes.error ||
+            'Sebagian metrik data gagal dimuat dari server.';
+        }
+      }
+    });
+
+    const pendingActions = pendingLeaves + pendingTips + pendingFleet + pendingExpenses;
 
     return {
-      employees: { total: emps.length, active: activeEmps, inactive: inactiveEmps },
-      leaves: { pending: pendingLeaves, approved: approvedLeaves, total: (leaveRes.data || []).length },
-      glassTips: { pending: pendingTips, verifiedCount: verifiedTips.length, totalAmount: totalVerifiedTipAmount },
-      fleet: { pending: pendingFleet, approved: approvedFleet, total: (fleetRes.data || []).length },
-      violations: { total: (violRes.data || []).length },
-      attendance: { present: presentCount, late: lateCount, absent: absentCount, permit: permitCount, totalRecorded: todayAtt.length },
-      payroll: { currentPeriod: openPayroll?.period_name || 'Tidak Ada Periode Terbuka', status: openPayroll?.status || 'N/A' },
+      employees: {
+        total: totalEmployees,
+        active: activeEmployees,
+        inactive: inactiveEmployees,
+        byDepartment: departmentBreakdown,
+      },
+      leaves: {
+        pending: pendingLeaves,
+        approved: approvedLeaves,
+        total: totalLeaves,
+      },
+      glassTips: {
+        pending: pendingTips,
+        verifiedCount: verifiedTipCount,
+        totalAmount: totalVerifiedTipAmount,
+      },
+      fleet: {
+        pending: pendingFleet,
+        approved: approvedFleet,
+        total: totalFleetRequests,
+        available: vehiclesAvailable,
+        inUse: vehiclesInUse,
+        maintenance: vehiclesMaintenance,
+        totalVehicles: totalVehicles,
+      },
+      violations: {
+        total: totalViolations,
+        warningLettersCount: totalWarningLetters,
+      },
+      attendance: {
+        present: presentAttendance,
+        late: lateAttendance,
+        absent: absentAttendance,
+        permit: permitAttendance,
+        totalRecorded: totalAttendanceRecorded,
+      },
+      finance: {
+        pending: pendingExpenses,
+        totalApprovedAmount: totalApprovedExpenses,
+      },
+      payroll: {
+        currentPeriod: openPayrollPeriod,
+        status: openPayrollStatus,
+      },
+      pendingActions,
+      isPusat,
       isFixture: isAnyFixture,
       source: isAnyFixture ? 'MOCK' : 'LIVE',
       success: !isAnyError,
@@ -2220,6 +2586,42 @@ function getPreviewVehicles(unitId: string): Vehicle[] {
       is_active: true,
       created_at: '2023-08-12T08:00:00Z',
     },
+    {
+      id: 'veh-003',
+      unit_id: unitId,
+      license_plate: 'B 9345 KUK',
+      brand: 'Isuzu',
+      model: 'Elf NMR 71 HD Truk Engkel',
+      year: 2021,
+      type: 'TRUCK',
+      status: 'BORROWED',
+      is_active: true,
+      created_at: '2021-10-05T08:00:00Z',
+    },
+    {
+      id: 'veh-004',
+      unit_id: unitId,
+      license_plate: 'FORKLIFT-KUK-01',
+      brand: 'Toyota',
+      model: '8FBN25 Electric Forklift 3-Ton',
+      year: 2020,
+      type: 'FORKLIFT' as any,
+      status: 'AVAILABLE',
+      is_active: true,
+      created_at: '2020-04-18T08:00:00Z',
+    },
+    {
+      id: 'veh-005',
+      unit_id: unitId,
+      license_plate: 'B 9789 KUK',
+      brand: 'Viar',
+      model: 'Karya 200 Roda Tiga',
+      year: 2022,
+      type: 'MOTORCYCLE',
+      status: 'AVAILABLE',
+      is_active: true,
+      created_at: '2022-09-01T08:00:00Z',
+    },
   ];
 }
 
@@ -2243,25 +2645,6 @@ function getPreviewBorrowingRequests(unitId: string): VehicleBorrowingRequest[] 
       approved_at: '2026-11-05T10:00:00Z',
       created_at: '2026-11-05T09:00:00Z',
       vehicle: { id: 'veh-001', unit_id: unitId, license_plate: 'B 9123 KUK', brand: 'Mitsubishi', model: 'Colt L300 Pick Up', year: 2022, type: 'PICKUP', status: 'AVAILABLE', is_active: true, created_at: '' },
-    },
-  ];
-}
-
-function getPreviewJobHistory(employeeId: string): EmployeeJobHistory[] {
-  return [
-    {
-      id: 'jh-001',
-      employee_id: employeeId,
-      from_unit_id: null,
-      to_unit_id: '00000000-0000-0000-0000-000000000001',
-      from_position_id: null,
-      to_position_id: 'pos-01',
-      effective_date: '2023-01-15',
-      transition_type: 'HIRE',
-      notes: 'Perekrutan awal staf operasional & pemotong kaca TB KUK La Tansa.',
-      created_at: '2023-01-15T08:00:00Z',
-      to_unit_name: 'TB KUK La Tansa',
-      to_position_title: 'Sopir Pengiriman & Pemotong Kaca',
     },
   ];
 }
