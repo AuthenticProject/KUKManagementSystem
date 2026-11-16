@@ -430,6 +430,77 @@ export class PreviewStore {
     return { success: true, message: '[SIMULASI PREVIEW] Sesi briefing berhasil dicatat.' };
   }
 
+  public recordDailyBriefingAttendance(unitId: string, payload: {
+    session_date: string;
+    session_time: string;
+    speaker_name: string;
+    topic: string;
+    records: Array<{
+      employee_id: string;
+      status: AttendanceStatus;
+      check_in_time?: string;
+      notes?: string;
+    }>;
+  }): { success: boolean; message: string; session_id?: string } {
+    this.initUnit(unitId);
+    if (!payload.topic || !payload.topic.trim()) {
+      return { success: false, message: 'Validasi Gagal: Topik pengarahan briefing wajib diisi.' };
+    }
+    const sessionId = `brf-${Date.now()}`;
+    const newSession: BriefingSession = {
+      id: sessionId,
+      unit_id: unitId,
+      session_date: payload.session_date,
+      session_time: payload.session_time || '07:45:00',
+      topic: payload.topic.trim(),
+      speaker_name: payload.speaker_name || 'Kepala Toko / Supervisor',
+      total_attendees: payload.records.filter(r => r.status === 'PRESENT').length,
+      created_at: new Date().toISOString(),
+    };
+
+    // Update briefing sessions list
+    const bList = this.briefingSessions[unitId] || [];
+    const bIdx = bList.findIndex(b => b.session_date === payload.session_date);
+    if (bIdx >= 0) {
+      bList[bIdx] = newSession;
+    } else {
+      bList.unshift(newSession);
+    }
+    this.briefingSessions[unitId] = bList;
+
+    // Update daily attendance records for this date
+    const dateKey = `${unitId}_${payload.session_date}`;
+    const employees = this.getEmployees(unitId);
+    const existingDayRecords = this.attendanceRecords[dateKey] || [];
+
+    const updatedRecords: AttendanceDailyRecord[] = payload.records.map((r, idx) => {
+      const emp = employees.find(e => e.id === r.employee_id);
+      const prev = existingDayRecords.find(dr => dr.employee_id === r.employee_id);
+      return {
+        id: prev?.id || `att-${Date.now()}-${idx}`,
+        unit_id: unitId,
+        employee_id: r.employee_id,
+        attendance_date: payload.session_date,
+        check_in_time: r.status === 'PRESENT' ? (r.check_in_time || '07:45:00') : (null as any),
+        check_out_time: r.status === 'PRESENT' ? (prev?.check_out_time || '17:00:00') : (null as any),
+        status: r.status,
+        source: 'BRIEFING' as any,
+        late_minutes: 0,
+        notes: r.notes,
+        employee: emp || ({ full_name: 'Karyawan KUK', employee_code: 'EMP' } as Employee),
+      };
+    });
+
+    this.attendanceRecords[dateKey] = updatedRecords;
+    this.saveToStorage();
+
+    return {
+      success: true,
+      message: `[SIMULASI PREVIEW] Rekap presensi briefing tanggal ${payload.session_date} untuk ${updatedRecords.length} karyawan berhasil disimpan!`,
+      session_id: sessionId,
+    };
+  }
+
   public getDailyAttendance(unitId: string, date: string): AttendanceDailyRecord[] {
     this.initUnit(unitId);
     const key = `${unitId}_${date}`;
@@ -1132,18 +1203,18 @@ export class PreviewStore {
           position_id: 'pos-palen-01',
           work_schedule_id: 'sch-01',
           employee_code: 'EMP-PALEN-001',
-          full_name: 'Rian Pratama',
-          email: 'rian.pratama@kuk.co.id',
-          phone: '085211223344',
+          full_name: 'Miftah',
+          email: 'miftah@kuk.co.id',
+          phone: '085202001301',
           gender: 'L',
           marital_status: 'SINGLE',
           status: 'ACTIVE',
           employment_type: 'PKWTT',
-          join_date: '2023-06-01',
-          created_at: '2023-06-01T08:00:00Z',
+          join_date: '2023-10-15',
+          created_at: '2023-10-15T08:00:00Z',
           updated_at: '2026-11-01T08:00:00Z',
-          department: { id: 'dept-palen-01', unit_id: unitId, code: 'GUDANG', name: 'Gudang & Logistik', is_active: true, created_at: '' },
-          position: { id: 'pos-palen-01', unit_id: unitId, department_id: 'dept-palen-01', code: 'CUTTER', title: 'Tukang Potong Kaca', level: 2, is_active: true, created_at: '' },
+          department: { id: 'dept-palen-01', unit_id: unitId, code: 'GUDANG', name: 'Kepala Gudang & Logistik', is_active: true, created_at: '' },
+          position: { id: 'pos-palen-01', unit_id: unitId, department_id: 'dept-palen-01', code: 'KEPALA_GUDANG', title: 'Kepala Gudang', level: 2, is_active: true, created_at: '' },
           work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
         },
         {
@@ -1153,18 +1224,18 @@ export class PreviewStore {
           position_id: 'pos-palen-02',
           work_schedule_id: 'sch-01',
           employee_code: 'EMP-PALEN-002',
-          full_name: 'Dewi Lestari',
-          email: 'dewi.lestari@kuk.co.id',
-          phone: '085299887766',
-          gender: 'P',
-          marital_status: 'MARRIED',
+          full_name: 'Nukul',
+          email: 'nukul@kuk.co.id',
+          phone: '085202001202',
+          gender: 'L',
+          marital_status: 'SINGLE',
           status: 'ACTIVE',
           employment_type: 'PKWT',
-          join_date: '2024-01-10',
-          created_at: '2024-01-10T08:00:00Z',
+          join_date: '2023-10-01',
+          created_at: '2023-10-01T08:00:00Z',
           updated_at: '2026-11-01T08:00:00Z',
-          department: { id: 'dept-palen-02', unit_id: unitId, code: 'ADM', name: 'Administrasi & Keuangan', is_active: true, created_at: '' },
-          position: { id: 'pos-palen-02', unit_id: unitId, department_id: 'dept-palen-02', code: 'KASIR', title: 'Kasir Toko', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
+          department: { id: 'dept-palen-02', unit_id: unitId, code: 'TOKO', name: 'Kepala Toko & Manajemen', is_active: true, created_at: '' },
+          position: { id: 'pos-palen-02', unit_id: unitId, department_id: 'dept-palen-02', code: 'KEPALA_TOKO', title: 'Kepala Toko', level: 1, allowed_leave_days_of_week: [0, 1, 2, 3, 4, 5, 6], is_active: true, created_at: '' },
           work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
         },
       ];
@@ -1177,18 +1248,18 @@ export class PreviewStore {
         position_id: 'pos-01',
         work_schedule_id: 'sch-01',
         employee_code: 'EMP-LATANSA-001',
-        full_name: 'Budi Santoso',
-        email: 'budi.santoso@kuk.co.id',
+        full_name: 'Wiba Sepdioko',
+        email: 'wiba@kuk.co.id',
         phone: '081234567890',
         gender: 'L',
         marital_status: 'MARRIED',
         status: 'ACTIVE',
         employment_type: 'PKWTT',
-        join_date: '2023-01-15',
-        created_at: '2023-01-15T08:00:00Z',
+        join_date: '2023-01-01',
+        created_at: '2023-01-01T08:00:00Z',
         updated_at: '2026-11-01T08:00:00Z',
         department: { id: 'dept-01', unit_id: unitId, code: 'GUDANG', name: 'Gudang & Logistik', is_active: true, created_at: '' },
-        position: { id: 'pos-01', unit_id: unitId, department_id: 'dept-01', code: 'SOPIR', title: 'Sopir Pengiriman & Pemotong Kaca', level: 2, is_active: true, created_at: '' },
+        position: { id: 'pos-01', unit_id: unitId, department_id: 'dept-01', code: 'ADM2', title: 'Admin 2 (Operasional)', level: 2, is_active: true, created_at: '' },
         work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
       },
       {
@@ -1198,18 +1269,165 @@ export class PreviewStore {
         position_id: 'pos-02',
         work_schedule_id: 'sch-01',
         employee_code: 'EMP-LATANSA-002',
-        full_name: 'Siti Aminah',
-        email: 'siti.aminah@kuk.co.id',
+        full_name: 'Muhammad Irvan',
+        email: 'irvan@kuk.co.id',
         phone: '081298765432',
-        gender: 'P',
+        gender: 'L',
+        marital_status: 'MARRIED',
+        status: 'ACTIVE',
+        employment_type: 'PKWT',
+        join_date: '2023-09-01',
+        created_at: '2023-09-01T08:00:00Z',
+        updated_at: '2026-11-01T08:00:00Z',
+        department: { id: 'dept-02', unit_id: unitId, code: 'ADM', name: 'Administrasi', is_active: true, created_at: '' },
+        position: { id: 'pos-02', unit_id: unitId, department_id: 'dept-02', code: 'ADM3', title: 'Admin 3 (Operasional Toko)', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
+        work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
+      },
+      {
+        id: 'emp-latansa-003',
+        unit_id: unitId,
+        department_id: 'dept-03',
+        position_id: 'pos-03',
+        work_schedule_id: 'sch-01',
+        employee_code: 'K-004',
+        full_name: 'Irfan Ulinnuha (Ulin)',
+        email: 'ulin@kuk.co.id',
+        phone: '081235550004',
+        gender: 'L',
+        marital_status: 'MARRIED',
+        status: 'ACTIVE',
+        employment_type: 'PKWTT',
+        join_date: '2022-05-10',
+        created_at: '2022-05-10T08:00:00Z',
+        updated_at: '2026-11-01T08:00:00Z',
+        department: { id: 'dept-03', unit_id: unitId, code: 'TOKO', name: 'Kepala Toko', is_active: true, created_at: '' },
+        position: { id: 'pos-03', unit_id: unitId, department_id: 'dept-03', code: 'KEPALA_TOKO', title: 'Kepala Toko La Tansa', level: 1, is_active: true, created_at: '' },
+        work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
+      },
+      {
+        id: 'emp-latansa-004',
+        unit_id: unitId,
+        department_id: 'dept-04',
+        position_id: 'pos-04',
+        work_schedule_id: 'sch-01',
+        employee_code: 'K-005',
+        full_name: 'Syirojul Kahfi',
+        email: 'kahfi@kuk.co.id',
+        phone: '081235550005',
+        gender: 'L',
         marital_status: 'SINGLE',
         status: 'ACTIVE',
         employment_type: 'PKWT',
-        join_date: '2024-03-01',
-        created_at: '2024-03-01T08:00:00Z',
+        join_date: '2023-03-15',
+        created_at: '2023-03-15T08:00:00Z',
         updated_at: '2026-11-01T08:00:00Z',
-        department: { id: 'dept-02', unit_id: unitId, code: 'ADM', name: 'Administrasi & Keuangan', is_active: true, created_at: '' },
-        position: { id: 'pos-02', unit_id: unitId, department_id: 'dept-02', code: 'ADM3', title: 'Admin 3 (Operasional Toko)', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
+        department: { id: 'dept-04', unit_id: unitId, code: 'KASIR', name: 'Kasir', is_active: true, created_at: '' },
+        position: { id: 'pos-04', unit_id: unitId, department_id: 'dept-04', code: 'KASIR', title: 'Kasir Toko', level: 3, is_active: true, created_at: '' },
+        work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
+      },
+      {
+        id: 'emp-latansa-005',
+        unit_id: unitId,
+        department_id: 'dept-01',
+        position_id: 'pos-05',
+        work_schedule_id: 'sch-01',
+        employee_code: 'K-006',
+        full_name: 'Nur Hadi (Nur)',
+        email: 'nurhadi@kuk.co.id',
+        phone: '081235550006',
+        gender: 'L',
+        marital_status: 'MARRIED',
+        status: 'ACTIVE',
+        employment_type: 'PKWTT',
+        join_date: '2021-08-20',
+        created_at: '2021-08-20T08:00:00Z',
+        updated_at: '2026-11-01T08:00:00Z',
+        department: { id: 'dept-01', unit_id: unitId, code: 'GUDANG', name: 'Kepala Gudang', is_active: true, created_at: '' },
+        position: { id: 'pos-05', unit_id: unitId, department_id: 'dept-01', code: 'KEPALA_GUDANG', title: 'Kepala Gudang La Tansa', level: 2, is_active: true, created_at: '' },
+        work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
+      },
+      {
+        id: 'emp-latansa-006',
+        unit_id: unitId,
+        department_id: 'dept-05',
+        position_id: 'pos-06',
+        work_schedule_id: 'sch-01',
+        employee_code: 'K-007',
+        full_name: 'Alip Rejeki',
+        email: 'alip@kuk.co.id',
+        phone: '081235550007',
+        gender: 'L',
+        marital_status: 'SINGLE',
+        status: 'ACTIVE',
+        employment_type: 'PKWT',
+        join_date: '2023-06-01',
+        created_at: '2023-06-01T08:00:00Z',
+        updated_at: '2026-11-01T08:00:00Z',
+        department: { id: 'dept-05', unit_id: unitId, code: 'LOGISTIK', name: 'Pengiriman & Logistik', is_active: true, created_at: '' },
+        position: { id: 'pos-06', unit_id: unitId, department_id: 'dept-05', code: 'DRIVER', title: 'Sopir Pengiriman Logistik', level: 3, is_active: true, created_at: '' },
+        work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
+      },
+      {
+        id: 'emp-latansa-007',
+        unit_id: unitId,
+        department_id: 'dept-06',
+        position_id: 'pos-07',
+        work_schedule_id: 'sch-01',
+        employee_code: 'K-008',
+        full_name: 'Arriyan Muhammad (Riyan)',
+        email: 'riyan@kuk.co.id',
+        phone: '081235550008',
+        gender: 'L',
+        marital_status: 'SINGLE',
+        status: 'ACTIVE',
+        employment_type: 'PKWT',
+        join_date: '2023-07-10',
+        created_at: '2023-07-10T08:00:00Z',
+        updated_at: '2026-11-01T08:00:00Z',
+        department: { id: 'dept-06', unit_id: unitId, code: 'FRONTLINER', name: 'Frontliner & Kaca', is_active: true, created_at: '' },
+        position: { id: 'pos-07', unit_id: unitId, department_id: 'dept-06', code: 'CUTTER', title: 'Pemotong Kaca & Frontliner', level: 3, is_active: true, created_at: '' },
+        work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
+      },
+      {
+        id: 'emp-latansa-008',
+        unit_id: unitId,
+        department_id: 'dept-06',
+        position_id: 'pos-08',
+        work_schedule_id: 'sch-01',
+        employee_code: 'K-009',
+        full_name: 'Muhammad Hiba',
+        email: 'hiba@kuk.co.id',
+        phone: '081235550009',
+        gender: 'L',
+        marital_status: 'SINGLE',
+        status: 'ACTIVE',
+        employment_type: 'PKWT',
+        join_date: '2023-07-15',
+        created_at: '2023-07-15T08:00:00Z',
+        updated_at: '2026-11-01T08:00:00Z',
+        department: { id: 'dept-06', unit_id: unitId, code: 'FRONTLINER', name: 'Frontliner', is_active: true, created_at: '' },
+        position: { id: 'pos-08', unit_id: unitId, department_id: 'dept-06', code: 'FRONTLINER', title: 'Frontliner', level: 3, is_active: true, created_at: '' },
+        work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
+      },
+      {
+        id: 'emp-latansa-009',
+        unit_id: unitId,
+        department_id: 'dept-06',
+        position_id: 'pos-09',
+        work_schedule_id: 'sch-01',
+        employee_code: 'K-010',
+        full_name: 'Lailurrohman (Rohman)',
+        email: 'rohman@kuk.co.id',
+        phone: '081235550010',
+        gender: 'L',
+        marital_status: 'SINGLE',
+        status: 'ACTIVE',
+        employment_type: 'PKWT',
+        join_date: '2023-08-01',
+        created_at: '2023-08-01T08:00:00Z',
+        updated_at: '2026-11-01T08:00:00Z',
+        department: { id: 'dept-06', unit_id: unitId, code: 'FRONTLINER', name: 'Frontliner', is_active: true, created_at: '' },
+        position: { id: 'pos-09', unit_id: unitId, department_id: 'dept-06', code: 'FRONTLINER', title: 'Frontliner', level: 3, is_active: true, created_at: '' },
         work_schedule: { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
       },
     ];

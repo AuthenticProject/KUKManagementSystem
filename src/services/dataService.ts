@@ -966,6 +966,68 @@ export const attendanceService = {
     }
   },
 
+  async recordDailyBriefingAttendance(
+    unitId: string,
+    payload: {
+      session_date: string;
+      session_time: string;
+      speaker_name: string;
+      topic: string;
+      records: Array<{
+        employee_id: string;
+        status: AttendanceStatus;
+        check_in_time?: string;
+        notes?: string;
+      }>;
+    }
+  ): Promise<{ success: boolean; message: string; session_id?: string }> {
+    if (!unitId) return { success: false, message: 'Unit wajib ditentukan.' };
+    if (isPreviewModeActive()) {
+      return previewStore.recordDailyBriefingAttendance(unitId, payload);
+    }
+    try {
+      // 1. Create briefing session
+      const { data: bData, error: bError } = await supabase
+        .from('briefing_sessions')
+        .insert([{
+          unit_id: unitId,
+          session_date: payload.session_date,
+          session_time: payload.session_time || '07:45:00',
+          topic: payload.topic,
+          speaker_name: payload.speaker_name,
+          total_attendees: payload.records.filter(r => r.status === 'PRESENT').length,
+        }])
+        .select()
+        .single();
+      if (bError) throw bError;
+
+      // 2. Upsert daily attendance records
+      const attRows = payload.records.map(r => ({
+        unit_id: unitId,
+        employee_id: r.employee_id,
+        attendance_date: payload.session_date,
+        check_in_time: r.status === 'PRESENT' ? (r.check_in_time || '07:45:00') : null,
+        check_out_time: null,
+        status: r.status,
+        source: 'BRIEFING',
+        notes: r.notes || null,
+      }));
+
+      const { error: attError } = await supabase
+        .from('attendance_daily_records')
+        .upsert(attRows, { onConflict: 'unit_id,employee_id,attendance_date' });
+      if (attError) throw attError;
+
+      return {
+        success: true,
+        message: `Rekap presensi briefing tanggal ${payload.session_date} untuk ${payload.records.length} karyawan berhasil disimpan.`,
+        session_id: bData?.id,
+      };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Gagal menyimpan rekap presensi briefing.' };
+    }
+  },
+
   async correctAttendance(
     unitId: string,
     recordId: string,
