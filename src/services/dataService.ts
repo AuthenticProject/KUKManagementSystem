@@ -52,6 +52,10 @@ export function isPreviewModeActive(): boolean {
   // Production security safeguard:
   // In production builds, preview mode is strictly rejected by default
   // unless explicitly permitted via build/staging configuration flag VITE_ENABLE_PREVIEW_MODE='true'
+  const isVercelHost =
+    typeof window !== 'undefined' &&
+    window.location.hostname.includes('vercel.app');
+
   const isProd =
     typeof import.meta !== 'undefined' &&
     ((import.meta as any)?.env?.PROD === true ||
@@ -60,7 +64,8 @@ export function isPreviewModeActive(): boolean {
 
   const allowInProd =
     typeof import.meta !== 'undefined' &&
-    (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true';
+    ((import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true' ||
+      (isVercelHost && (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE !== 'false'));
 
   if (isProd && !allowInProd) {
     return false;
@@ -71,10 +76,14 @@ export function isPreviewModeActive(): boolean {
     if (val !== null) return val === 'true';
   }
 
-  return allowInProd;
+  return allowInProd || (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true);
 }
 
 export function setPreviewModeActive(active: boolean): boolean {
+  const isVercelHost =
+    typeof window !== 'undefined' &&
+    window.location.hostname.includes('vercel.app');
+
   const isProd =
     typeof import.meta !== 'undefined' &&
     ((import.meta as any)?.env?.PROD === true ||
@@ -83,7 +92,8 @@ export function setPreviewModeActive(active: boolean): boolean {
 
   const allowInProd =
     typeof import.meta !== 'undefined' &&
-    (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true';
+    ((import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true' ||
+      (isVercelHost && (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE !== 'false'));
 
   if (active && isProd && !allowInProd) {
     console.warn('Security Block: Preview Mode is permanently disabled in Production.');

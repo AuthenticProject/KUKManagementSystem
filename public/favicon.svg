@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="kukGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#540000" />
+      <stop offset="100%" stop-color="#3B0000" />
+    </linearGradient>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD700" />
+      <stop offset="100%" stop-color="#FFCC00" />
+    </linearGradient>
+  </defs>
+  <!-- Background Circle -->
+  <circle cx="32" cy="32" r="30" fill="url(#kukGradient)" stroke="url(#goldGradient)" stroke-width="2.5" />
+  <!-- Stylized KUK 'K' Monogram -->
+  <path d="M 22 16 L 22 48 M 22 32 L 40 16 M 28 26 L 42 48" stroke="url(#goldGradient)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

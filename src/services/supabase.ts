@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'dummy_anon_key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ckzciuybedefbsdfsexh.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Q8N64Hiqq7hYAG69F6Fs5g_hveDpB7N';
 
 if (!import.meta.env.VITE_SUPABASE_URL) {
-  console.warn(
-    '[Supabase Configuration] VITE_SUPABASE_URL tidak didefinisikan. Menggunakan fallback lokal staging.'
+  console.info(
+    '[Supabase Configuration] Menggunakan konfigurasi default Supabase.'
   );
 }
 
