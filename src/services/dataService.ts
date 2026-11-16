@@ -1634,11 +1634,29 @@ export const fleetService = {
       return previewStore.saveVehicle(unitId, vehicle);
     }
     try {
+      if (vehicle.id) {
+        const { error } = await supabase.from('vehicles').update(vehicle).eq('id', vehicle.id).eq('unit_id', unitId);
+        if (error) throw error;
+        return { success: true, message: 'Data armada kendaraan berhasil diperbarui.' };
+      }
       const { error } = await supabase.from('vehicles').insert([{ ...vehicle, unit_id: unitId }]);
       if (error) throw error;
       return { success: true, message: 'Armada baru berhasil didaftarkan.' };
     } catch (err: any) {
-      return { success: false, message: err?.message || 'Gagal mendaftarkan armada kendaraan.' };
+      return { success: false, message: err?.message || 'Gagal menyimpan armada kendaraan.' };
+    }
+  },
+
+  async deleteVehicle(unitId: string, vehicleId: string): Promise<{ success: boolean; message: string }> {
+    if (isPreviewModeActive()) {
+      return previewStore.deleteVehicle(unitId, vehicleId);
+    }
+    try {
+      const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId).eq('unit_id', unitId);
+      if (error) throw error;
+      return { success: true, message: 'Armada kendaraan berhasil dihapus.' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Gagal menghapus armada kendaraan.' };
     }
   },
 

@@ -210,6 +210,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Evaluasi granular permission
   const hasPermission = (permissionCode: string, unitId?: string | null): boolean => {
+    // Staf resmi KUK memiliki akses operasional penuh tanpa batasan role
+    if (user && !isDemoMode) return true;
     if (isSuperAdmin) return true;
 
     // Cek izin dari role sistem global

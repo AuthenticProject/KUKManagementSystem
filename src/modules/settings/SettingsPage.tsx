@@ -5,14 +5,13 @@ import {
   glassTipService,
 } from '@/services/dataService';
 import { userAccountStore, StoredStaffUser } from '@/services/userAccountStore';
-import type { UserAccount, BusinessUnit, UserRole, Department, Position, WorkSchedule } from '@/types/models';
+import type { BusinessUnit, UserRole, Department, Position, WorkSchedule } from '@/types/models';
 import {
   Settings,
   Users,
   ShieldCheck,
   Building2,
   CheckCircle2,
-  Shield,
   Check,
   X,
   Database,
@@ -108,11 +107,6 @@ export const SettingsPage: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<StoredStaffUser | null>(null);
 
-  // Legacy Edit Role modal (preserved)
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
-  const [targetRole, setTargetRole] = useState<UserRole>('SUPERVISOR');
-  const [savingRole, setSavingRole] = useState(false);
 
   const loadMasterData = async (unitId: string = masterUnit) => {
     try {
@@ -272,34 +266,6 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  // Legacy Role Modal handler
-  const handleOpenEditRole = (u: UserAccount) => {
-    setSelectedUser(u);
-    setTargetRole((u.role as UserRole) || 'KASIR');
-    setRoleModalOpen(true);
-  };
-
-  const handleSaveRole = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedUser) return;
-    setSavingRole(true);
-    const res = await systemService.saveUserRole(
-      selectedUser.id,
-      targetRole,
-      selectedUser.assigned_units || []
-    );
-    // Also sync to UserAccountStore if matching user exists
-    const matchingStaff = userAccountStore.getUserById(selectedUser.id);
-    if (matchingStaff) {
-      userAccountStore.saveUser({ ...matchingStaff, role: targetRole });
-    }
-    setSavingRole(false);
-    showToast(res.message);
-    if (res.success) {
-      setRoleModalOpen(false);
-      loadData();
-    }
-  };
 
   // --- Master Data Handlers ---
   const handleSaveGlassRate = async (e: React.FormEvent) => {
@@ -610,7 +576,6 @@ export const SettingsPage: React.FC = () => {
                     <th className="px-4 py-3">Jabatan Resmi</th>
                     <th className="px-4 py-3">Kata Sandi (PW)</th>
                     <th className="px-4 py-3">Unit / Toko</th>
-                    <th className="px-4 py-3">Peran (Role)</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Aksi</th>
                   </tr>
@@ -681,13 +646,6 @@ export const SettingsPage: React.FC = () => {
                           </span>
                         </td>
 
-                        {/* Peran Sistem */}
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-kuk-maroon-50 text-kuk-maroon border border-kuk-maroon/20">
-                            {u.role}
-                          </span>
-                        </td>
-
                         {/* Status (Clickable to Toggle) */}
                         <td className="px-4 py-3">
                           <button
@@ -707,29 +665,6 @@ export const SettingsPage: React.FC = () => {
                         {/* Aksi: Edit & Hapus */}
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleOpenEditRole({
-                                  id: u.id,
-                                  email: u.email || `${u.username}@kuk.co.id`,
-                                  full_name: u.namaLengkap,
-                                  system_role: u.role === 'PIMPINAN' ? 'super_admin' : 'staff',
-                                  status: u.is_active ? 'ACTIVE' : 'INACTIVE',
-                                  is_active: u.is_active,
-                                  assigned_units: [],
-                                  created_at: '',
-                                  role: u.role,
-                                  unit_name: u.toko === 'palen' ? 'KUK Palen' : 'TB KUK La Tansa',
-                                })
-                              }
-                              className="px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 border border-gray-200 rounded-lg font-medium inline-flex items-center gap-1 transition-colors"
-                              title="Ubah peran RBAC pengguna"
-                            >
-                              <Shield className="w-3 h-3 text-kuk-maroon" />
-                              <span>Ubah Peran</span>
-                            </button>
-
                             <button
                               type="button"
                               onClick={() => handleOpenEditAccount(u)}
@@ -1444,33 +1379,17 @@ export const SettingsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
                 {/* Toko / Unit Kerja */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Toko / Unit Kerja</label>
-                  <select
-                    value={formToko}
-                    onChange={(e) => setFormToko(e.target.value as 'bangunan' | 'palen')}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
-                  >
-                    <option value="bangunan">🏢 TB KUK La Tansa (Bangunan)</option>
-                    <option value="palen">🏬 KUK Palen</option>
-                  </select>
-                </div>
-
-                {/* Peran Sistem (Role RBAC) */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Peran Akses (Role RBAC)</label>
-                  <select
-                    value={formRole}
-                    onChange={(e) => setFormRole(e.target.value as UserRole)}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
-                  >
-                    <option value="PIMPINAN">PIMPINAN (Direksi / Koordinator)</option>
-                    <option value="MANAGER">MANAGER (Kepala Toko / HRD)</option>
-                    <option value="SUPERVISOR">SUPERVISOR (Pengawas / Inventaris / Bendahara)</option>
-                  </select>
-                </div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Toko / Unit Kerja *</label>
+                <select
+                  value={formToko}
+                  onChange={(e) => setFormToko(e.target.value as 'bangunan' | 'palen')}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                >
+                  <option value="bangunan">🏢 TB KUK La Tansa (Bangunan)</option>
+                  <option value="palen">🏬 KUK Palen</option>
+                </select>
               </div>
 
               {/* Status Aktif */}
@@ -1549,60 +1468,6 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Legacy Modal Ubah Peran (Preserved for tests) */}
-      {roleModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 bg-kuk-maroon text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-kuk-gold" />
-                <h2 className="font-bold text-sm">Ubah Peran Pengguna</h2>
-              </div>
-              <button onClick={() => setRoleModalOpen(false)} className="text-white/80 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveRole} className="p-6 space-y-4">
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs space-y-1">
-                <div className="font-bold text-gray-900">{selectedUser.full_name}</div>
-                <div className="text-gray-500 font-mono">{selectedUser.email}</div>
-                <div className="text-gray-500">Unit: {selectedUser.unit_name}</div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Pilih Peran Sistem (Role)</label>
-                <select
-                  value={targetRole}
-                  onChange={(e) => setTargetRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
-                >
-                  <option value="PIMPINAN">PIMPINAN (Direksi / Owner)</option>
-                  <option value="MANAGER">MANAGER (Kepala Toko / Operasional)</option>
-                  <option value="SUPERVISOR">SUPERVISOR (Pengawas Toko / Inventaris)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setRoleModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingRole}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-kuk-maroon hover:bg-kuk-maroon-700 rounded-lg disabled:opacity-50 transition-colors shadow-xs"
-                >
-                  {savingRole ? 'Menyimpan...' : 'Simpan Peran'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ============================================================== */}
       {/* MODAL MASTER: TARIF JENIS KACA */}

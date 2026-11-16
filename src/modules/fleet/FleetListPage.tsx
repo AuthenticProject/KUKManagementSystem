@@ -25,6 +25,7 @@ import {
   QrCode,
   Camera,
   Trash2,
+  Edit3,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -43,8 +44,9 @@ export const FleetListPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'vehicles' | 'requests'>('vehicles');
   const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
 
-  // Vehicle form modal state
+  // Vehicle form modal state (Create / Edit)
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [vPlate, setVPlate] = useState('');
   const [vBrand, setVBrand] = useState('Mitsubishi');
   const [vModel, setVModel] = useState('');
@@ -52,6 +54,40 @@ export const FleetListPage: React.FC = () => {
   const [vType, setVType] = useState('PICKUP');
   const [vStatus, setVStatus] = useState<VehicleStatus>('AVAILABLE');
   const [vSaving, setVSaving] = useState(false);
+
+  const handleOpenCreateVehicle = () => {
+    setEditingVehicleId(null);
+    setVPlate('');
+    setVBrand('Mitsubishi');
+    setVModel('');
+    setVYear(new Date().getFullYear());
+    setVType('PICKUP');
+    setVStatus('AVAILABLE');
+    setVehicleModalOpen(true);
+  };
+
+  const handleOpenEditVehicle = (veh: Vehicle) => {
+    setEditingVehicleId(veh.id);
+    setVPlate(veh.license_plate);
+    setVBrand(veh.brand);
+    setVModel(veh.model);
+    setVYear(veh.year);
+    setVType(veh.type);
+    setVStatus(veh.status);
+    setVehicleModalOpen(true);
+  };
+
+  const handleDeleteVehicle = async (veh: Vehicle) => {
+    if (!activeUnitId) return;
+    if (!window.confirm(`Yakin ingin menghapus armada "${veh.brand} ${veh.model} (${veh.license_plate})"?`)) {
+      return;
+    }
+    const res = await fleetService.deleteVehicle(activeUnitId, veh.id);
+    showToast(res.message, !res.success);
+    if (res.success) {
+      loadData();
+    }
+  };
 
   // Internal Booking modal state (Sesuai Referensi Web)
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
@@ -150,6 +186,7 @@ export const FleetListPage: React.FC = () => {
 
     setVSaving(true);
     const res = await fleetService.saveVehicle(activeUnitId, {
+      id: editingVehicleId || undefined,
       license_plate: vPlate.trim().toUpperCase(),
       brand: vBrand.trim(),
       model: vModel.trim(),
@@ -162,6 +199,7 @@ export const FleetListPage: React.FC = () => {
     showToast(res.message, !res.success);
     if (res.success) {
       setVehicleModalOpen(false);
+      setEditingVehicleId(null);
       setVPlate('');
       setVModel('');
       loadData();
@@ -453,7 +491,7 @@ export const FleetListPage: React.FC = () => {
 
             {canManageFleet && (
               <button
-                onClick={() => setVehicleModalOpen(true)}
+                onClick={handleOpenCreateVehicle}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
               >
                 <Plus className="w-4 h-4 text-kuk-maroon" />
@@ -560,17 +598,33 @@ export const FleetListPage: React.FC = () => {
                         {veh.status}
                       </span>
                       {canManageFleet && (
-                        <button
-                          onClick={() => {
-                            setSelectedVehicleForStatus(veh);
-                            setNewStatus(veh.status);
-                            setStatusModalOpen(true);
-                          }}
-                          className="p-1 text-gray-400 hover:text-kuk-maroon rounded hover:bg-gray-200 transition-colors"
-                          title="Ubah Status Armada"
-                        >
-                          <Settings2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenEditVehicle(veh)}
+                            className="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-200 transition-colors"
+                            title="Edit Data Armada"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedVehicleForStatus(veh);
+                              setNewStatus(veh.status);
+                              setStatusModalOpen(true);
+                            }}
+                            className="p-1 text-gray-500 hover:text-kuk-maroon rounded hover:bg-gray-200 transition-colors"
+                            title="Ubah Status Armada"
+                          >
+                            <Settings2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteVehicle(veh)}
+                            className="p-1 text-gray-500 hover:text-red-600 rounded hover:bg-gray-200 transition-colors"
+                            title="Hapus Armada"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1024,9 +1078,19 @@ export const FleetListPage: React.FC = () => {
             <div className="px-6 py-4 bg-kuk-maroon text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-kuk-gold" />
-                <h2 className="font-bold text-sm">Pendaftaran Armada Kendaraan</h2>
+                <h2 className="font-bold text-sm">
+                  {editingVehicleId ? 'Edit Data Armada Kendaraan' : 'Pendaftaran Armada Kendaraan'}
+                </h2>
               </div>
-              <button onClick={() => setVehicleModalOpen(false)} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
+              <button
+                onClick={() => {
+                  setVehicleModalOpen(false);
+                  setEditingVehicleId(null);
+                }}
+                className="text-white/80 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleCreateVehicle} className="p-6 space-y-4">
@@ -1109,7 +1173,10 @@ export const FleetListPage: React.FC = () => {
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={() => setVehicleModalOpen(false)}
+                  onClick={() => {
+                    setVehicleModalOpen(false);
+                    setEditingVehicleId(null);
+                  }}
                   className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg"
                 >
                   Batal
@@ -1119,7 +1186,7 @@ export const FleetListPage: React.FC = () => {
                   disabled={vSaving}
                   className="px-4 py-2 text-xs font-semibold text-white bg-kuk-maroon hover:bg-kuk-maroon-700 rounded-lg disabled:opacity-50 transition-colors shadow-xs"
                 >
-                  {vSaving ? 'Mendaftarkan...' : 'Daftarkan Armada'}
+                  {vSaving ? 'Menyimpan...' : editingVehicleId ? 'Simpan Perubahan Armada' : 'Daftarkan Armada'}
                 </button>
               </div>
             </form>

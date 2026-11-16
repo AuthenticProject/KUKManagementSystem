@@ -903,6 +903,24 @@ export class PreviewStore {
   public saveVehicle(unitId: string, vehicle: Partial<Vehicle>): { success: boolean; message: string } {
     this.initUnit(unitId);
     const list = this.vehicles[unitId] || [];
+    if (vehicle.id) {
+      const idx = list.findIndex(x => x.id === vehicle.id);
+      if (idx !== -1) {
+        list[idx] = {
+          ...list[idx],
+          ...vehicle,
+          license_plate: vehicle.license_plate || list[idx].license_plate,
+          brand: vehicle.brand || list[idx].brand,
+          model: vehicle.model || list[idx].model,
+          year: vehicle.year ?? list[idx].year,
+          type: vehicle.type || list[idx].type,
+          status: vehicle.status || list[idx].status,
+        };
+        this.vehicles[unitId] = list;
+        this.saveToStorage();
+        return { success: true, message: 'Data armada kendaraan berhasil diperbarui.' };
+      }
+    }
     const newV: Vehicle = {
       id: vehicle.id || `veh-${Date.now()}`,
       unit_id: unitId,
@@ -919,6 +937,13 @@ export class PreviewStore {
     this.vehicles[unitId] = list;
     this.saveToStorage();
     return { success: true, message: 'Kendaraan armada berhasil didaftarkan.' };
+  }
+
+  public deleteVehicle(unitId: string, vehicleId: string): { success: boolean; message: string } {
+    this.initUnit(unitId);
+    this.vehicles[unitId] = (this.vehicles[unitId] || []).filter(x => x.id !== vehicleId);
+    this.saveToStorage();
+    return { success: true, message: 'Armada kendaraan berhasil dihapus.' };
   }
 
   public updateVehicleStatus(unitId: string, vehicleId: string, status: VehicleStatus): { success: boolean; message: string } {

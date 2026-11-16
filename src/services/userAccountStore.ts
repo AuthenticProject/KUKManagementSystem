@@ -11,7 +11,7 @@
  */
 
 import { UserRole } from '@/types/models';
-import { CANONICAL_DEMO_UNITS, DEMO_IDENTITIES, DemoIdentityKey, DemoIdentity } from './demoAuth';
+import { CANONICAL_DEMO_UNITS, DEMO_IDENTITIES, DemoIdentity } from './demoAuth';
 
 export interface StoredStaffUser {
   id: string;
@@ -414,6 +414,7 @@ class UserAccountStore {
 
   /**
    * Convert StoredStaffUser to a DemoIdentity for AuthContext integration
+   * Staf resmi KUK memiliki akses penuh tanpa pembagian role yang membatasi
    */
   public mapToDemoIdentity(user: StoredStaffUser): DemoIdentity {
     const unitId =
@@ -421,35 +422,15 @@ class UserAccountStore {
         ? CANONICAL_DEMO_UNITS.PALEN.id
         : CANONICAL_DEMO_UNITS.LATANSA.id;
 
-    // Map role to standard DemoIdentityKey
-    let key: DemoIdentityKey = 'SUPERVISOR';
-    const roleStr = String(user.role).toUpperCase();
-
-    if (roleStr === 'PIMPINAN' || user.username.toLowerCase() === 'fariz') {
-      key = 'PIMPINAN';
-    } else if (roleStr === 'HRD' || user.username.toLowerCase() === 'irsyadil') {
-      key = 'HRD';
-    } else if (roleStr === 'MANAGER') {
-      key = user.toko === 'palen' ? 'MANAGER_PALEN' : 'MANAGER_LATANSA';
-    } else if (roleStr === 'FINANCE' || /bendahara/i.test(user.jabatan)) {
-      key = 'FINANCE';
-    } else if (roleStr === 'KASIR') {
-      key = 'KASIR';
-    } else if (roleStr === 'CUTTER') {
-      key = 'CUTTER';
-    } else if (roleStr === 'DRIVER') {
-      key = 'DRIVER';
-    }
-
-    const baseIdentity = DEMO_IDENTITIES[key] || DEMO_IDENTITIES.SUPERVISOR;
+    const pimpinanIdentity = DEMO_IDENTITIES.PIMPINAN;
 
     return {
-      ...baseIdentity,
+      ...pimpinanIdentity,
       label: `${user.namaLengkap} (${user.jabatan})`,
       badge: user.jabatan,
-      role: user.role,
-      unitScope: user.toko === 'palen' ? 'PALEN' : user.role === 'PIMPINAN' ? 'ALL' : 'LATANSA',
-      defaultUnitId: user.role === 'PIMPINAN' ? null : unitId,
+      role: 'PIMPINAN',
+      unitScope: 'ALL',
+      defaultUnitId: unitId,
       profile: {
         id: user.id,
         email: user.email || `${user.username}@kuk.co.id`,
