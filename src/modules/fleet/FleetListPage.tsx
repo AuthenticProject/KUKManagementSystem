@@ -28,9 +28,13 @@ import {
   Edit3,
   ChevronDown,
   ChevronUp,
+  Upload,
+  Download,
 } from 'lucide-react';
 import { PrintHeader } from '@/components/common/PrintHeader';
 import { exportToCSV } from '@/utils/exportUtils';
+import { exportToExcel } from '@/utils/excelUtils';
+import { ExcelImportModal } from '@/components/common/ExcelImportModal';
 import { PageHeader } from '@/components/ui';
 
 export const FleetListPage: React.FC = () => {
@@ -46,6 +50,7 @@ export const FleetListPage: React.FC = () => {
 
   // Vehicle form modal state (Create / Edit)
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+  const [vehicleImportModalOpen, setVehicleImportModalOpen] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [vPlate, setVPlate] = useState('');
   const [vBrand, setVBrand] = useState('Mitsubishi');
@@ -434,6 +439,124 @@ export const FleetListPage: React.FC = () => {
       r.status,
     ]);
     exportToCSV(`Peminjaman_Armada_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    showToast(`Berhasil mengekspor ${requests.length} data peminjaman ke CSV.`);
+  };
+
+  const handleExportVehiclesExcel = () => {
+    const headers = [
+      'No. Polisi / Plat',
+      'Merk',
+      'Model Kendaraan',
+      'Tahun',
+      'Tipe Kendaraan',
+      'Status Kendaraan',
+      'Status Aktif',
+    ];
+    const rows = vehicles.map((v) => [
+      v.license_plate,
+      v.brand,
+      v.model,
+      v.year || '-',
+      v.type || 'PICKUP',
+      v.status,
+      v.is_active ? 'AKTIF' : 'NON-AKTIF',
+    ]);
+    exportToExcel(
+      `Master_Armada_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`,
+      'Armada',
+      headers,
+      rows
+    );
+    showToast(`Berhasil mengekspor ${vehicles.length} armada kendaraan ke Excel (.xlsx).`);
+  };
+
+  const handleExportBookingsExcel = () => {
+    const headers = [
+      'Kode Booking',
+      'Peminjam',
+      'Instansi',
+      'Telepon',
+      'Penanggung Jawab',
+      'Armada',
+      'Plat',
+      'Waktu Mulai',
+      'Waktu Selesai',
+      'Tujuan',
+      'Keperluan',
+      'Status',
+    ];
+    const rows = requests.map((r) => [
+      r.booking_code,
+      r.borrower_name,
+      r.borrower_institution || '-',
+      r.borrower_phone,
+      r.responsible_person,
+      `${r.vehicle?.brand || ''} ${r.vehicle?.model || ''}`,
+      r.vehicle?.license_plate || '',
+      r.start_time,
+      r.estimated_return_time,
+      r.destination,
+      r.purpose,
+      r.status,
+    ]);
+    exportToExcel(
+      `Peminjaman_Armada_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`,
+      'Peminjaman',
+      headers,
+      rows
+    );
+    showToast(`Berhasil mengekspor ${requests.length} data peminjaman ke Excel (.xlsx).`);
+  };
+
+  const handleImportVehicles = async (rows: Record<string, any>[]) => {
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
+    let count = 0;
+
+    for (const r of rows) {
+      const getVal = (keys: string[]) => {
+        for (const k of Object.keys(r)) {
+          const lower = k.toLowerCase();
+          if (keys.some((target) => lower.includes(target.toLowerCase()))) {
+            return String(r[k] !== undefined && r[k] !== null ? r[k] : '').trim();
+          }
+        }
+        return '';
+      };
+
+      const plate = getVal(['plat', 'polisi', 'nopol', 'license']);
+      if (!plate) continue;
+
+      const brand = getVal(['merk', 'brand']) || 'Mitsubishi';
+      const model = getVal(['model', 'nama', 'kendaraan']) || 'Armada Operasional';
+      const yearRaw = parseInt(getVal(['tahun', 'year'])) || new Date().getFullYear();
+      const typeRaw = getVal(['jenis', 'type', 'tipe']).toUpperCase();
+      const statusRaw = getVal(['status']).toUpperCase();
+
+      const vehicleType = typeRaw.includes('MOTOR') ? 'MOTOR' : typeRaw.includes('TRUK') || typeRaw.includes('TRUCK') ? 'TRUCK' : 'PICKUP';
+      const status = statusRaw.includes('PINJAM') || statusRaw.includes('BORROW')
+        ? 'BORROWED'
+        : statusRaw.includes('BENGKEL') || statusRaw.includes('MAINT')
+        ? 'MAINTENANCE'
+        : 'AVAILABLE';
+
+      await fleetService.saveVehicle(targetUnitId, {
+        license_plate: plate.toUpperCase(),
+        brand,
+        model,
+        year: yearRaw,
+        type: vehicleType,
+        status: status as any,
+        is_active: true,
+      });
+      count++;
+    }
+
+    await loadData();
+    return {
+      success: true,
+      message: `Berhasil mengimpor ${count} armada kendaraan ke database unit kerja.`,
+      count,
+    };
   };
 
   return (
@@ -460,43 +583,81 @@ export const FleetListPage: React.FC = () => {
         unitBadge={activeUnit?.name}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
-              title="Ekspor CSV"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-kuk-maroon" />
-              <span>Ekspor CSV</span>
-            </button>
+            {activeTab === 'vehicles' ? (
+              <>
+                <button
+                  onClick={handleExportVehiclesExcel}
+                  disabled={vehicles.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
+                  title="Ekspor daftar armada ke Microsoft Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Ekspor Excel</span>
+                </button>
 
-            <button
-              onClick={() => setBookingModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white rounded-xl text-xs font-semibold hover:bg-kuk-maroon-dark transition-colors shadow-xs"
-            >
-              <Send className="w-4 h-4 text-kuk-gold" />
-              <span>Ajukan Pinjam Armada</span>
-            </button>
+                {canManageFleet && (
+                  <button
+                    onClick={() => setVehicleImportModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+                    title="Impor armada kendaraan massal dari file Excel / CSV"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-kuk-maroon" />
+                    <span>Import Excel</span>
+                  </button>
+                )}
 
-            <button
-              onClick={() => {
-                if (vehicles.length > 0 && !bbmVehicleId) setBbmVehicleId(vehicles[0].id);
-                setFuelModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
-              title="Catat Pengisian BBM & Struk SPBU"
-            >
-              <Fuel className="w-3.5 h-3.5 text-kuk-maroon" />
-              <span>Catat BBM SPBU</span>
-            </button>
+                {canManageFleet && (
+                  <button
+                    onClick={handleOpenCreateVehicle}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white hover:bg-kuk-maroon-dark rounded-xl text-xs font-semibold transition-colors shadow-xs"
+                  >
+                    <Plus className="w-4 h-4 text-kuk-gold" />
+                    <span>Daftar Armada Baru</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleExportBookingsExcel}
+                  disabled={requests.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
+                  title="Ekspor riwayat peminjaman ke Microsoft Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Ekspor Excel</span>
+                </button>
 
-            {canManageFleet && (
-              <button
-                onClick={handleOpenCreateVehicle}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
-              >
-                <Plus className="w-4 h-4 text-kuk-maroon" />
-                <span>Daftar Armada Baru</span>
-              </button>
+                <button
+                  onClick={handleExportCSV}
+                  disabled={requests.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
+                  title="Ekspor CSV"
+                >
+                  <Download className="w-3.5 h-3.5 text-kuk-maroon" />
+                  <span>CSV</span>
+                </button>
+
+                <button
+                  onClick={() => setBookingModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white rounded-xl text-xs font-semibold hover:bg-kuk-maroon-dark transition-colors shadow-xs"
+                >
+                  <Send className="w-4 h-4 text-kuk-gold" />
+                  <span>Ajukan Pinjam Armada</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (vehicles.length > 0 && !bbmVehicleId) setBbmVehicleId(vehicles[0].id);
+                    setFuelModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+                  title="Catat Pengisian BBM & Struk SPBU"
+                >
+                  <Fuel className="w-3.5 h-3.5 text-kuk-maroon" />
+                  <span>Catat BBM SPBU</span>
+                </button>
+              </>
             )}
 
             <a
@@ -506,7 +667,7 @@ export const FleetListPage: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold transition-colors shadow-2xs"
             >
               <ExternalLink className="w-4 h-4 text-kuk-maroon" />
-              <span>Kiosk Booking Publik</span>
+              <span>Kiosk Booking</span>
             </a>
           </div>
         }
@@ -1773,6 +1934,30 @@ export const FleetListPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal Import Excel Armada Kendaraan */}
+      <ExcelImportModal
+        isOpen={vehicleImportModalOpen}
+        onClose={() => setVehicleImportModalOpen(false)}
+        title="Import Data Armada Kendaraan dari Excel"
+        subtitle="Masukkan daftar armada operasional secara massal menggunakan file spreadsheet (.xlsx, .csv)."
+        templateFilename={`Template_Import_Armada_${activeUnit?.code || 'KUK'}`}
+        templateSheetName="MasterArmada"
+        templateHeaders={[
+          'No. Polisi / Plat',
+          'Merk',
+          'Model Kendaraan',
+          'Tahun',
+          'Tipe Kendaraan',
+          'Status',
+        ]}
+        templateSampleRows={[
+          ['B 9123 KUK', 'Mitsubishi', 'L300 Box', 2022, 'PICKUP', 'AVAILABLE'],
+          ['A 8876 TY', 'Toyota', 'Hilux Single Cabin', 2023, 'PICKUP', 'AVAILABLE'],
+          ['B 1234 CD', 'Hino', 'Dutro 130 HD', 2021, 'TRUCK', 'AVAILABLE'],
+        ]}
+        onImport={handleImportVehicles}
+      />
     </div>
   );
 };

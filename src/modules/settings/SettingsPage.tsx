@@ -28,8 +28,12 @@ import {
   Briefcase,
   Clock,
   Percent,
+  FileSpreadsheet,
+  Upload,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
+import { exportToExcel } from '@/utils/excelUtils';
+import { ExcelImportModal } from '@/components/common/ExcelImportModal';
 
 export const SYSTEM_FEATURES = [
   { id: 'dashboard', label: 'Dashboard Utama', desc: 'Ringkasan operasional toko, grafik, dan metrik bisnis' },
@@ -119,6 +123,7 @@ export const SettingsPage: React.FC = () => {
   // Delete Confirm Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<StoredStaffUser | null>(null);
+  const [staffImportModalOpen, setStaffImportModalOpen] = useState(false);
 
 
   const loadMasterData = async (unitId: string = masterUnit) => {
@@ -305,6 +310,88 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  // Export Staff Users to Excel (.xlsx)
+  const handleExportStaffExcel = () => {
+    const headers = [
+      'Nama Lengkap',
+      'Jabatan Resmi',
+      'Username',
+      'Kata Sandi',
+      'Toko / Unit',
+      'Akses Fitur',
+      'Email',
+      'Status Aktif',
+    ];
+    const rows = filteredStaffUsers.map((u) => [
+      u.namaLengkap,
+      u.jabatan || 'Staf Operasional',
+      u.username,
+      u.password,
+      u.toko === 'palen' ? '🏬 KUK Palen' : '🏢 TB KUK La Tansa',
+      u.permissions?.includes('*') ? 'Semua Fitur (Full)' : (u.permissions || []).join(', '),
+      u.email || `${u.username}@kuk.co.id`,
+      u.is_active ? 'AKTIF' : 'NON-AKTIF',
+    ]);
+    exportToExcel(
+      `Master_Akun_Staf_KUK_${new Date().toISOString().slice(0, 10)}`,
+      'AkunStaf',
+      headers,
+      rows
+    );
+    showToast(`Berhasil mengekspor ${filteredStaffUsers.length} akun staf ke file Excel (.xlsx).`);
+  };
+
+  // Import Staff Users from Excel
+  const handleImportStaff = async (rows: Record<string, any>[]) => {
+    let count = 0;
+    for (const r of rows) {
+      const getVal = (keys: string[]) => {
+        for (const k of Object.keys(r)) {
+          const lower = k.toLowerCase();
+          if (keys.some((target) => lower.includes(target.toLowerCase()))) {
+            return String(r[k] !== undefined && r[k] !== null ? r[k] : '').trim();
+          }
+        }
+        return '';
+      };
+
+      const nama = getVal(['nama', 'lengkap', 'name']);
+      if (!nama) continue;
+
+      const username = getVal(['username', 'user', 'akun']) || nama.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const password = getVal(['password', 'sandi', 'pass', 'pw']) || '12345';
+      const jabatan = getVal(['jabatan', 'posisi', 'role']) || 'Staf Operasional';
+      const tokoRaw = getVal(['toko', 'unit']);
+      const toko = tokoRaw.toLowerCase().includes('palen') ? 'palen' : 'bangunan';
+      const email = getVal(['email']) || `${username.toLowerCase()}@kuk.co.id`;
+      const permsRaw = getVal(['fitur', 'akses', 'permission']);
+      const permissions = permsRaw.toUpperCase().includes('SEMUA') || permsRaw.includes('*')
+        ? ['*']
+        : permsRaw
+        ? permsRaw.split(',').map((s) => s.trim().toLowerCase())
+        : SYSTEM_FEATURES.map((f) => f.id);
+
+      userAccountStore.saveUser({
+        namaLengkap: nama,
+        username,
+        password,
+        jabatan,
+        toko,
+        email,
+        permissions,
+        is_active: true,
+      });
+      count++;
+    }
+
+    loadData();
+    return {
+      success: true,
+      message: `Berhasil mengimpor ${count} akun staf ke sistem dari Excel.`,
+      count,
+    };
+  };
+
 
   // --- Master Data Handlers ---
   const handleSaveGlassRate = async (e: React.FormEvent) => {
@@ -476,7 +563,28 @@ export const SettingsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportStaffExcel}
+                disabled={filteredStaffUsers.length === 0}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-xl transition-all shadow-2xs disabled:opacity-50"
+                title="Ekspor daftar akun staf ke Microsoft Excel (.xlsx)"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Ekspor Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStaffImportModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition-all shadow-2xs"
+                title="Impor akun staf massal dari file Excel (.xlsx / .csv)"
+              >
+                <Upload className="w-3.5 h-3.5 text-kuk-maroon" />
+                <span>Import Excel</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleResetDefaults}
@@ -1882,6 +1990,29 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal Import Excel Akun Staf */}
+      <ExcelImportModal
+        isOpen={staffImportModalOpen}
+        onClose={() => setStaffImportModalOpen(false)}
+        title="Import Akun Staf Manajemen dari Excel"
+        subtitle="Masukkan akun staf baru atau perbarui kata sandi secara massal dari file spreadsheet (.xlsx, .csv)."
+        templateFilename="Template_Import_Akun_Staf_KUK"
+        templateSheetName="AkunStaf"
+        templateHeaders={[
+          'Nama Lengkap',
+          'Jabatan Resmi',
+          'Username',
+          'Kata Sandi',
+          'Toko (bangunan/palen)',
+          'Email',
+        ]}
+        templateSampleRows={[
+          ['Fariz Ridwani', 'Koordinator', 'fariz', '12345', 'bangunan', 'fariz@kuk.co.id'],
+          ['Ahmad Raju', 'Kepala Toko', 'raju', '54321', 'palen', 'raju@kuk.co.id'],
+        ]}
+        onImport={handleImportStaff}
+      />
     </div>
   );
 };

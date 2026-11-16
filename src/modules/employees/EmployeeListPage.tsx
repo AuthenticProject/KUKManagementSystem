@@ -10,6 +10,8 @@ import { JobHistoryModal } from './JobHistoryModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { PrintHeader } from '@/components/common/PrintHeader';
 import { exportToCSV } from '@/utils/exportUtils';
+import { exportToExcel } from '@/utils/excelUtils';
+import { ExcelImportModal } from '@/components/common/ExcelImportModal';
 import { PageHeader } from '@/components/ui';
 import {
   Users,
@@ -31,6 +33,8 @@ import {
   Printer,
   Download,
   X,
+  FileSpreadsheet,
+  Upload,
 } from 'lucide-react';
 
 export const EmployeeListPage: React.FC = () => {
@@ -62,6 +66,7 @@ export const EmployeeListPage: React.FC = () => {
 
   // Printable Employee Directory Modal
   const [directoryModalOpen, setDirectoryModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   // Notifications
   const [toast, setToast] = useState<{ text: string; isError?: boolean } | null>(null);
@@ -146,6 +151,85 @@ export const EmployeeListPage: React.FC = () => {
     showToast(`Berhasil mengekspor ${filtered.length} data karyawan ke CSV.`);
   };
 
+  const handleExportExcel = () => {
+    const headers = [
+      'Kode Karyawan',
+      'Nama Lengkap',
+      'Departemen',
+      'Jabatan',
+      'Email',
+      'Telepon',
+      'Status',
+      'Tanggal Bergabung',
+    ];
+    const rows = filtered.map((emp) => [
+      emp.employee_code,
+      emp.full_name,
+      emp.department?.name || '-',
+      emp.position?.title || '-',
+      emp.email || '-',
+      emp.phone || '-',
+      emp.status,
+      emp.join_date || '-',
+    ]);
+    exportToExcel(
+      `Master_Karyawan_${activeUnit?.code || 'KUK'}_${new Date().toISOString().slice(0, 10)}`,
+      'Karyawan',
+      headers,
+      rows
+    );
+    showToast(`Berhasil mengekspor ${filtered.length} data karyawan ke Excel (.xlsx).`);
+  };
+
+  const handleImportEmployees = async (rows: Record<string, any>[]) => {
+    const targetUnitId = activeUnitId || '00000000-0000-0000-0000-000000000001';
+    let count = 0;
+
+    for (const r of rows) {
+      const getVal = (keys: string[]) => {
+        for (const k of Object.keys(r)) {
+          const lower = k.toLowerCase();
+          if (keys.some((target) => lower.includes(target.toLowerCase()))) {
+            return String(r[k] !== undefined && r[k] !== null ? r[k] : '').trim();
+          }
+        }
+        return '';
+      };
+
+      const fullName = getVal(['nama', 'name']);
+      if (!fullName) continue;
+
+      const code = getVal(['kode', 'code', 'nik']) || `EMP-${Date.now().toString().slice(-4)}${count}`;
+      const email = getVal(['email']) || `${code.toLowerCase()}@kuk.co.id`;
+      const phone = getVal(['telepon', 'phone', 'hp', 'wa']) || '-';
+      const statusRaw = getVal(['status']) || 'TETAP';
+      const joinDate = getVal(['tanggal', 'join', 'masuk']) || new Date().toISOString().slice(0, 10);
+
+      const status = statusRaw.toUpperCase().includes('KONTRAK')
+        ? 'KONTRAK'
+        : statusRaw.toUpperCase().includes('PROBATION')
+        ? 'PROBATION'
+        : 'TETAP';
+
+      await employeeService.saveEmployee(targetUnitId, {
+        employee_code: code,
+        full_name: fullName,
+        email,
+        phone,
+        status: status as any,
+        join_date: joinDate,
+      });
+      count++;
+    }
+
+    await loadData();
+    return {
+      success: true,
+      message: `Berhasil mengimpor ${count} data karyawan ke unit kerja.`,
+      count,
+    };
+  };
+
   const filtered = employees.filter((emp) => {
     const matchSearch =
       emp.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -180,13 +264,34 @@ export const EmployeeListPage: React.FC = () => {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={handleExportExcel}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
+              title="Ekspor data karyawan ke format Microsoft Excel (.xlsx)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Ekspor Excel</span>
+            </button>
+
+            {hasPermission('employees.create', activeUnitId) && (
+              <button
+                onClick={() => setImportModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+                title="Impor data karyawan massal dari file Excel (.xlsx / .csv)"
+              >
+                <Upload className="w-3.5 h-3.5 text-kuk-maroon" />
+                <span>Import Excel</span>
+              </button>
+            )}
+
+            <button
               onClick={handleExportCSV}
               disabled={filtered.length === 0}
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
-              title="Ekspor ke format CSV / Excel"
+              title="Ekspor ke format CSV"
             >
               <Download className="w-3.5 h-3.5 text-kuk-maroon" />
-              <span className="hidden sm:inline">Ekspor CSV</span>
+              <span className="hidden sm:inline">CSV</span>
             </button>
 
             <button
@@ -614,6 +719,31 @@ export const EmployeeListPage: React.FC = () => {
           unitId={activeUnitId || ''}
         />
       )}
+
+      {/* Modal Import Excel Karyawan */}
+      <ExcelImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        title="Import Data Karyawan dari Excel"
+        subtitle="Masukkan data karyawan massal ke unit kerja aktif menggunakan spreadsheet (.xlsx, .csv)."
+        templateFilename={`Template_Import_Karyawan_${activeUnit?.code || 'KUK'}`}
+        templateSheetName="MasterKaryawan"
+        templateHeaders={[
+          'Kode Karyawan',
+          'Nama Lengkap',
+          'Departemen',
+          'Jabatan',
+          'Email',
+          'Telepon',
+          'Status Kerja',
+          'Tanggal Masuk',
+        ]}
+        templateSampleRows={[
+          ['EMP-001', 'Ahmad Rizky Pratama', 'Operasional', 'Staf Kaca', 'rizky@kuk.co.id', '081234567891', 'TETAP', '2024-01-10'],
+          ['EMP-002', 'Budi Santoso', 'Gudang', 'Checker', 'budi@kuk.co.id', '081234567892', 'KONTRAK', '2024-02-01'],
+        ]}
+        onImport={handleImportEmployees}
+      />
     </div>
   );
 };
