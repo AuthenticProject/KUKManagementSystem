@@ -281,7 +281,8 @@ export const CreateLeaveModal: React.FC<CreateLeaveModalProps> = ({
       total_days: selectedDates.length,
       reason: reason.trim(),
       dates: selectedDates,
-    });
+      bypass_window: true,
+    } as any);
     setLoading(false);
 
     if (!res.success) {

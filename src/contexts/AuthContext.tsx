@@ -235,7 +235,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (e) {}
     }
     clearStoredDemoIdentity();
-    setPreviewModeActive(false);
     setUser(null);
     setSession(null);
     setProfile(null);

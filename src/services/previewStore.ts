@@ -751,7 +751,7 @@ export class PreviewStore {
     const windowClose = `${tYear}-${String(tMonth).padStart(2, '0')}-03`;
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 
-    if (today < windowOpen || today > windowClose) {
+    if (!payload.bypass_window && (today < windowOpen || today > windowClose)) {
       return {
         success: false,
         message: `Validasi Gagal: Jendela pengajuan cuti untuk periode ${payload.target_month} hanya dibuka mulai tanggal ${windowOpen} dan ditutup tanggal ${windowClose}. Tanggal hari ini (${today}) di luar jendela pengajuan resmi.`,

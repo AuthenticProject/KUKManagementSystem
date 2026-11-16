@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { fleetService } from '@/services/dataService';
+import { fleetService, financeService } from '@/services/dataService';
 import type { Vehicle, VehicleBorrowingRequest, VehicleStatus, VehicleFuelLevel } from '@/types/models';
 import {
   Truck,
@@ -22,6 +22,11 @@ import {
   Sparkles,
   ClipboardCheck,
   Printer,
+  QrCode,
+  Camera,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { PrintHeader } from '@/components/common/PrintHeader';
 import { exportToCSV } from '@/utils/exportUtils';
@@ -48,7 +53,7 @@ export const FleetListPage: React.FC = () => {
   const [vStatus, setVStatus] = useState<VehicleStatus>('AVAILABLE');
   const [vSaving, setVSaving] = useState(false);
 
-  // Internal Booking modal state
+  // Internal Booking modal state (Sesuai Referensi Web)
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bVehicleId, setBVehicleId] = useState('');
   const [bBorrowerName, setBBorrowerName] = useState(user?.email?.split('@')[0] || '');
@@ -59,7 +64,25 @@ export const FleetListPage: React.FC = () => {
   const [bEndTime, setBEndTime] = useState('');
   const [bDestination, setBDestination] = useState('');
   const [bPurpose, setBPurpose] = useState('');
+  const [bSimImage, setBSimImage] = useState<string | null>(null);
+  const [sopOpen, setSopOpen] = useState(false);
   const [bSaving, setBSaving] = useState(false);
+
+  // MyPertamina QR Modal state
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedQrVehicle, setSelectedQrVehicle] = useState<Vehicle | null>(null);
+
+  // Catat BBM SPBU Modal state (Sesuai Referensi Web)
+  const [fuelModalOpen, setFuelModalOpen] = useState(false);
+  const [bbmVehicleId, setBbmVehicleId] = useState('');
+  const [bbmRupiah, setBbmRupiah] = useState<number>(200000);
+  const [bbmLiter, setBbmLiter] = useState<number>(29.5);
+  const [bbmJenis, setBbmJenis] = useState('Biosolar Subsidi');
+  const [bbmKm, setBbmKm] = useState<number>(145000);
+  const [bbmSpbu, setBbmSpbu] = useState('SPBU Siman / Ponorogo');
+  const [bbmStrukImage, setBbmStrukImage] = useState<string | null>(null);
+  const [bbmCatatan, setBbmCatatan] = useState('');
+  const [bbmSaving, setBbmSaving] = useState(false);
 
   // Status edit modal state
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -145,6 +168,18 @@ export const FleetListPage: React.FC = () => {
     }
   };
 
+  const selectedVehicleObj = vehicles.find((v) => v.id === bVehicleId);
+  const isSimRequired = Boolean(
+    selectedVehicleObj &&
+      (selectedVehicleObj.brand.toLowerCase().includes('l300') ||
+        selectedVehicleObj.model.toLowerCase().includes('l300') ||
+        selectedVehicleObj.license_plate.toLowerCase().includes('l300') ||
+        selectedVehicleObj.model.toLowerCase().includes('engkel') ||
+        selectedVehicleObj.license_plate.toLowerCase().includes('engkel') ||
+        selectedVehicleObj.type === 'TRUCK' ||
+        selectedVehicleObj.type === 'PICKUP')
+  );
+
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeUnitId || !bVehicleId || !bStartTime || !bEndTime) {
@@ -169,7 +204,64 @@ export const FleetListPage: React.FC = () => {
       setBookingModalOpen(false);
       setBDestination('');
       setBPurpose('');
+      setBSimImage(null);
       loadData();
+
+      // Sinkronisasi WhatsApp sesuai referensi web
+      try {
+        const veh = vehicles.find((v) => v.id === bVehicleId);
+        const waText = encodeURIComponent(
+          `*PENGAJUAN PEMINJAMAN KENDARAAN TB. KUK*\n\n` +
+          `• *Peminjam:* ${bBorrowerName}\n` +
+          `• *Kamar/Instansi:* ${bInstitution}\n` +
+          `• *No. HP:* ${bPhone}\n` +
+          `• *Kendaraan:* ${veh?.brand || ''} ${veh?.model || ''} (${veh?.license_plate || ''})\n` +
+          `• *Waktu Mulai:* ${bStartTime}\n` +
+          `• *Rencana Kembali:* ${bEndTime}\n` +
+          `• *Tujuan:* ${bDestination}\n` +
+          `• *Keperluan:* ${bPurpose}\n\n` +
+          `_Mohon persetujuan dari Koordinator/Staff Pengelola Kendaraan KUK. Terima kasih._`
+        );
+        window.open(`https://api.whatsapp.com/send?text=${waText}`, '_blank');
+      } catch {}
+    }
+  };
+
+  const handleSimpanLogBbm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeUnitId || !bbmVehicleId) {
+      showToast('Pilih armada kendaraan terlebih dahulu.', true);
+      return;
+    }
+    setBbmSaving(true);
+    const veh = vehicles.find((v) => v.id === bbmVehicleId);
+    try {
+      await financeService.recordExpense(activeUnitId, {
+        category: 'OPERATIONAL',
+        amount: bbmRupiah,
+        recipient_name: `SPBU (${bbmSpbu || 'Pengisian BBM'})`,
+        description: `Pengisian BBM ${bbmJenis} (${bbmLiter}L) - ${veh?.brand || ''} ${veh?.model || ''} (${veh?.license_plate || ''}) Odometer: ${bbmKm || '-'} KM. ${bbmCatatan || ''}`,
+        expense_date: new Date().toISOString().split('T')[0],
+      });
+      showToast('✓ Log pengisian BBM & struk SPBU berhasil dicatat!');
+      setFuelModalOpen(false);
+
+      // Kirim WhatsApp
+      const waText = encodeURIComponent(
+        `*LOG PENGISIAN BBM & STRUK SPBU TB. KUK*\n\n` +
+        `• *Kendaraan:* ${veh?.brand || ''} ${veh?.model || ''} (${veh?.license_plate || ''})\n` +
+        `• *Total Rupiah:* Rp ${bbmRupiah.toLocaleString('id-ID')}\n` +
+        `• *Jumlah Liter:* ${bbmLiter} L (${bbmJenis})\n` +
+        `• *KM Odometer:* ${bbmKm || '-'}\n` +
+        `• *Lokasi SPBU:* ${bbmSpbu || '-'}\n` +
+        `• *Catatan:* ${bbmCatatan || '-'}\n\n` +
+        `_Tercatat otomatis di Sistem Operasional TB KUK._`
+      );
+      window.open(`https://api.whatsapp.com/send?text=${waText}`, '_blank');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menyimpan log BBM.', true);
+    } finally {
+      setBbmSaving(false);
     }
   };
 
@@ -347,6 +439,18 @@ export const FleetListPage: React.FC = () => {
               <span>Ajukan Pinjam Armada</span>
             </button>
 
+            <button
+              onClick={() => {
+                if (vehicles.length > 0 && !bbmVehicleId) setBbmVehicleId(vehicles[0].id);
+                setFuelModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+              title="Catat Pengisian BBM & Struk SPBU"
+            >
+              <Fuel className="w-3.5 h-3.5 text-kuk-maroon" />
+              <span>Catat BBM SPBU</span>
+            </button>
+
             {canManageFleet && (
               <button
                 onClick={() => setVehicleModalOpen(true)}
@@ -475,6 +579,26 @@ export const FleetListPage: React.FC = () => {
                     <div className="font-bold text-gray-900 text-sm">{veh.brand} {veh.model}</div>
                     <div className="text-xs text-gray-500 mt-0.5">Tipe: {veh.type} • Tahun: {veh.year}</div>
                   </div>
+
+                  {(veh.model.toLowerCase().includes('l300') ||
+                    veh.license_plate.toLowerCase().includes('l300') ||
+                    veh.model.toLowerCase().includes('engkel') ||
+                    veh.license_plate.toLowerCase().includes('engkel') ||
+                    veh.type === 'TRUCK') && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedQrVehicle(veh);
+                          setQrModalOpen(true);
+                        }}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-amber-700" />
+                        <span>MyPertamina QR Solar Pass</span>
+                      </button>
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
                     <span>Exclusion GiST Anti-Tabrakan</span>
@@ -649,13 +773,34 @@ export const FleetListPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Instansi / Unit Asal</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Instansi / Unit / Rayon *</label>
                   <input
                     type="text"
+                    required
+                    list="instansi-list"
+                    placeholder="Pilih kamar / instansi..."
                     value={bInstitution}
                     onChange={(e) => setBInstitution(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
                   />
+                  <datalist id="instansi-list">
+                    <option value="TB KUK La Tansa" />
+                    <option value="TB KUK Palen" />
+                    <option value="Rayon Al-Azhar" />
+                    <option value="Rayon Syanggit" />
+                    <option value="Rayon Cairo" />
+                    <option value="Rayon Damaskus" />
+                    <option value="Rayon Mekkah" />
+                    <option value="Rayon Madinah" />
+                    <option value="Rayon Tunis" />
+                    <option value="Rayon Sudan" />
+                    <option value="Rayon Tripoli" />
+                    <option value="Bagian Dapur Pondok" />
+                    <option value="Panitia / Bagian Pondok" />
+                    <option value="Pengasuhan Santri" />
+                    <option value="KMI Gontor" />
+                    <option value="Umum / Eksternal" />
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Penanggung Jawab *</label>
@@ -716,6 +861,93 @@ export const FleetListPage: React.FC = () => {
                 />
               </div>
 
+              {/* Upload Foto SIM Pengemudi */}
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-kuk-maroon" />
+                    <span>
+                      Foto Kartu SIM Pengemudi{' '}
+                      {isSimRequired ? (
+                        <span className="text-red-500 font-bold">* (Wajib SIM A / B1)</span>
+                      ) : (
+                        <span className="text-gray-400 font-normal">(Opsional)</span>
+                      )}
+                    </span>
+                  </label>
+                  {bSimImage && (
+                    <button
+                      type="button"
+                      onClick={() => setBSimImage(null)}
+                      className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1 font-semibold"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Hapus
+                    </button>
+                  )}
+                </div>
+
+                {bSimImage ? (
+                  <div className="relative rounded-lg overflow-hidden border border-gray-200 max-h-40 bg-black flex items-center justify-center">
+                    <img src={bSimImage} alt="SIM Preview" className="max-h-40 object-contain" />
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 hover:border-kuk-maroon rounded-lg p-3 cursor-pointer bg-white transition-colors">
+                    <Camera className="w-6 h-6 text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-600 font-medium">Klik untuk Unggah Foto SIM Pengemudi</span>
+                    <span className="text-[10px] text-gray-400 mt-0.5">Maksimal 5MB (JPG / PNG)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setBSimImage(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+                <div className="text-[11px] text-gray-500 flex items-center justify-between pt-1">
+                  <span>📂 Atau arsip folder:</span>
+                  <a
+                    href="https://drive.google.com/drive/folders/1gmv0TIJvTJcCyKD8rs7ichW4LANGFtyZ?usp=sharing"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-kuk-maroon hover:underline font-semibold flex items-center gap-1"
+                  >
+                    <span>Google Drive Kendaraan KUK</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Ketentuan & SOP Peminjaman Kendaraan */}
+              <div className="border border-amber-200 bg-amber-50/60 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setSopOpen(!sopOpen)}
+                  className="w-full px-3.5 py-2 flex items-center justify-between text-left text-xs font-bold text-amber-900 hover:bg-amber-100/50 transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <span>Ketentuan & SOP Peminjaman Kendaraan TB. KUK</span>
+                  </span>
+                  {sopOpen ? <ChevronUp className="w-4 h-4 text-amber-700" /> : <ChevronDown className="w-4 h-4 text-amber-700" />}
+                </button>
+                {sopOpen && (
+                  <div className="px-3.5 py-2.5 pt-1 text-[11px] text-amber-900/90 space-y-1 border-t border-amber-200/50">
+                    <p>1. <strong>Pengajuan:</strong> Wajib diajukan selambatnya H-1 sebelum pemakaian armada.</p>
+                    <p>2. <strong>Kualifikasi Pengemudi:</strong> Pengemudi wajib memiliki SIM A / B1 yang sah dan masih berlaku.</p>
+                    <p>3. <strong>Kondisi Kendaraan:</strong> Kendaraan harus dikembalikan dalam kondisi bersih & bahan bakar sama saat awal serah terima.</p>
+                    <p>4. <strong>BBM & SPBU:</strong> Gunakan MyPertamina QR Pass armada untuk BioSolar Subsidi dan lampirkan struk resmi SPBU.</p>
+                    <p>5. <strong>Tanggung Jawab:</strong> Segala tilang, kerusakan fisik akibat kelalaian, dan insiden menjadi tanggung jawab peminjam sepenuhnya.</p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
                 <button
                   type="button"
@@ -727,9 +959,10 @@ export const FleetListPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={bSaving}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-kuk-maroon hover:bg-kuk-maroon-700 rounded-lg disabled:opacity-50 transition-colors shadow-xs"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-kuk-maroon hover:bg-kuk-maroon-700 rounded-lg disabled:opacity-50 transition-colors shadow-xs flex items-center gap-1.5"
                 >
-                  {bSaving ? 'Mengirim...' : 'Kirim Pengajuan'}
+                  <Send className="w-3.5 h-3.5 text-kuk-gold" />
+                  <span>{bSaving ? 'Menyimpan...' : '💾 Simpan & Kirim WhatsApp'}</span>
                 </button>
               </div>
             </form>
@@ -1225,6 +1458,251 @@ export const FleetListPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal MyPertamina QR Solar Pass */}
+      {qrModalOpen && selectedQrVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-amber-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-white" />
+                <h2 className="font-bold text-sm">
+                  MyPertamina Solar Pass: {selectedQrVehicle.brand} {selectedQrVehicle.model} ({selectedQrVehicle.license_plate})
+                </h2>
+              </div>
+              <button onClick={() => setQrModalOpen(false)} className="text-white/80 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 text-center space-y-4">
+              <p className="text-xs text-gray-600">
+                Tunjukkan barcode QR resmi di bawah ini kepada petugas SPBU Pertamina saat melakukan pengisian BioSolar Subsidi armada TB KUK.
+              </p>
+
+              <div className="bg-white p-3 rounded-2xl border-2 border-dashed border-amber-300 inline-block shadow-inner mx-auto">
+                <img
+                  src={
+                    selectedQrVehicle.model.toLowerCase().includes('l300') ||
+                    selectedQrVehicle.license_plate.toLowerCase().includes('l300')
+                      ? '/fleet/QR-L300.jpeg'
+                      : '/fleet/qr-engkel.png'
+                  }
+                  alt={`QR Pertamina ${selectedQrVehicle.license_plate}`}
+                  className="max-h-72 w-auto object-contain mx-auto rounded-lg"
+                />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 text-left space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <span>Subsidi BioSolar Tepat Sasaran TB KUK</span>
+                </div>
+                <div>Armada: <strong>{selectedQrVehicle.brand} {selectedQrVehicle.model}</strong></div>
+                <div>Plat Nomor: <span className="font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded">{selectedQrVehicle.license_plate}</span></div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <a
+                  href={
+                    selectedQrVehicle.model.toLowerCase().includes('l300') ||
+                    selectedQrVehicle.license_plate.toLowerCase().includes('l300')
+                      ? '/fleet/QR-L300.jpeg'
+                      : '/fleet/qr-engkel.png'
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="px-4 py-2 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg inline-flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Buka Gambar Asli</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setQrModalOpen(false)}
+                  className="px-5 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-xs"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Catat Pengisian BBM SPBU */}
+      {fuelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-kuk-maroon text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Fuel className="w-5 h-5 text-kuk-gold" />
+                <h2 className="font-bold text-sm">Catat Pengisian BBM & Struk SPBU</h2>
+              </div>
+              <button onClick={() => setFuelModalOpen(false)} className="text-white/80 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSimpanLogBbm} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Pilih Armada Kendaraan *</label>
+                <select
+                  required
+                  value={bbmVehicleId}
+                  onChange={(e) => setBbmVehicleId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                >
+                  <option value="">-- Pilih Kendaraan --</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.brand} {v.model} ({v.license_plate})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Total Biaya (Rp) *</label>
+                  <input
+                    type="number"
+                    min={1000}
+                    step={1000}
+                    required
+                    value={bbmRupiah}
+                    onChange={(e) => setBbmRupiah(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg font-mono font-bold focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Jumlah Liter *</label>
+                  <input
+                    type="number"
+                    min={0.1}
+                    step={0.1}
+                    required
+                    value={bbmLiter}
+                    onChange={(e) => setBbmLiter(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg font-mono focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Jenis Bahan Bakar *</label>
+                  <select
+                    value={bbmJenis}
+                    onChange={(e) => setBbmJenis(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                  >
+                    <option value="Biosolar Subsidi">Biosolar Subsidi</option>
+                    <option value="Dexlite">Dexlite</option>
+                    <option value="Pertamina Dex">Pertamina Dex</option>
+                    <option value="Pertalite">Pertalite</option>
+                    <option value="Pertamax">Pertamax</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">KM Odometer Terakhir</label>
+                  <input
+                    type="number"
+                    value={bbmKm || ''}
+                    onChange={(e) => setBbmKm(Number(e.target.value))}
+                    placeholder="Contoh: 145200"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg font-mono focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Lokasi SPBU / Pom Bensin</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: SPBU Siman / Ponorogo"
+                  value={bbmSpbu}
+                  onChange={(e) => setBbmSpbu(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                />
+              </div>
+
+              {/* Upload Foto Struk */}
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-kuk-maroon" />
+                    <span>Foto Struk Kasir SPBU (Opsional)</span>
+                  </label>
+                  {bbmStrukImage && (
+                    <button
+                      type="button"
+                      onClick={() => setBbmStrukImage(null)}
+                      className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1 font-semibold"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Hapus
+                    </button>
+                  )}
+                </div>
+
+                {bbmStrukImage ? (
+                  <div className="relative rounded-lg overflow-hidden border border-gray-200 max-h-36 bg-black flex items-center justify-center">
+                    <img src={bbmStrukImage} alt="Struk SPBU Preview" className="max-h-36 object-contain" />
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 hover:border-kuk-maroon rounded-lg p-2.5 cursor-pointer bg-white transition-colors">
+                    <Camera className="w-5 h-5 text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-600 font-medium">Klik untuk Ambil/Unggah Foto Struk</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setBbmStrukImage(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Catatan Tambahan</label>
+                <input
+                  type="text"
+                  placeholder="Keterangan pengantaran / pengisian..."
+                  value={bbmCatatan}
+                  onChange={(e) => setBbmCatatan(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setFuelModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={bbmSaving}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-kuk-maroon hover:bg-kuk-maroon-700 rounded-lg disabled:opacity-50 transition-colors shadow-xs flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5 text-kuk-gold" />
+                  <span>{bbmSaving ? 'Menyimpan...' : '💾 Simpan & Kirim WhatsApp'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

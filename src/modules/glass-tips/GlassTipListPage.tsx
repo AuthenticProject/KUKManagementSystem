@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useUnit } from '@/contexts/UnitContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { glassTipService } from '@/services/dataService';
-import type { GlassTip, GlassType, GlassTipRate } from '@/types/models';
+import { glassTipService, employeeService } from '@/services/dataService';
+import type { GlassTip, GlassType, GlassTipRate, Employee } from '@/types/models';
 import {
   Scissors,
   CheckCircle,
@@ -20,6 +20,7 @@ import {
   Banknote,
   ShieldCheck,
   Printer,
+  Plus,
 } from 'lucide-react';
 import { PrintHeader } from '@/components/common/PrintHeader';
 import { exportToCSV } from '@/utils/exportUtils';
@@ -59,18 +60,40 @@ export const GlassTipListPage: React.FC = () => {
   const [printReceiptModalOpen, setPrintReceiptModalOpen] = useState(false);
   const [selectedTipForPrint, setSelectedTipForPrint] = useState<GlassTip | null>(null);
 
+  // Modal Input Catat Tip Potong Kaca (Sesuai Referensi Web)
+  const [inputModalOpen, setInputModalOpen] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [tEmpId, setTEmpId] = useState('');
+  const [tGlassTypeId, setTGlassTypeId] = useState('');
+  const [tInputMode, setTInputMode] = useState<'AREA' | 'DIMENSION'>('AREA');
+  const [tAreaSqm, setTAreaSqm] = useState<number>(1.5);
+  const [tLengthCm, setTLengthCm] = useState<number>(150);
+  const [tHeightCm, setTHeightCm] = useState<number>(100);
+  const [tDate, setTDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tNotes, setTNotes] = useState('');
+  const [tSubmitting, setTSubmitting] = useState(false);
+
   const loadData = async () => {
     if (!activeUnitId) return;
     setLoading(true);
     setError(null);
-    const [res, types, rates] = await Promise.all([
+    const [res, types, rates, empRes] = await Promise.all([
       glassTipService.getGlassTipsByUnit(activeUnitId),
       glassTipService.getGlassTypes(activeUnitId),
       glassTipService.getGlassTipRates(activeUnitId),
+      employeeService.getEmployeesByUnit(activeUnitId),
     ]);
     setTips(res.data);
     setGlassTypes(types);
     setGlassRates(rates);
+    const activeEmps = empRes.data.filter((e) => e.status === 'ACTIVE');
+    setEmployees(activeEmps);
+    if (activeEmps.length > 0 && !tEmpId) {
+      setTEmpId(activeEmps[0].id);
+    }
+    if (types.length > 0 && !tGlassTypeId) {
+      setTGlassTypeId(types[0].id);
+    }
     setIsFixture(res.isFixture);
     if (!res.success && res.error) {
       setError(res.error);
@@ -204,6 +227,56 @@ export const GlassTipListPage: React.FC = () => {
 
   const filtered = tips.filter((t) => statusFilter === 'ALL' || t.status === statusFilter);
 
+  const selectedRate = glassRates.find((r) => r.glass_type_id === tGlassTypeId) || null;
+  const pricePerSqm = selectedRate?.price_per_sqm || 0;
+  const calculatedSqm =
+    tInputMode === 'DIMENSION'
+      ? Math.round(((tLengthCm * tHeightCm) / 10000) * 100) / 100
+      : tAreaSqm;
+  const totalGlassPrice = Math.round(calculatedSqm * pricePerSqm);
+  const tipAmount = Math.round(totalGlassPrice * 0.03);
+
+  const handleSaveTip = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeUnitId) return;
+    if (!tEmpId) {
+      showToast('Pilih karyawan pemotong terlebih dahulu.', true);
+      return;
+    }
+    if (!tGlassTypeId) {
+      showToast('Pilih jenis kaca terlebih dahulu.', true);
+      return;
+    }
+    if (calculatedSqm <= 0) {
+      showToast('Luas kaca harus lebih besar dari 0 m².', true);
+      return;
+    }
+
+    setTSubmitting(true);
+    const emp = employees.find((e) => e.id === tEmpId);
+    const res = await glassTipService.submitGlassTip(activeUnitId, {
+      employee_id: tEmpId,
+      glass_type_id: tGlassTypeId,
+      length_cm: tInputMode === 'DIMENSION' ? tLengthCm : Math.round(Math.sqrt(calculatedSqm) * 100),
+      height_cm: tInputMode === 'DIMENSION' ? tHeightCm : Math.round(Math.sqrt(calculatedSqm) * 100),
+      quantity: 1,
+      calculated_sqm: calculatedSqm,
+      glass_price_snapshot: totalGlassPrice,
+      tip_amount: tipAmount,
+      notes: tNotes || `Pemotongan ${emp?.full_name || 'Karyawan'} (${tDate})`,
+    });
+    setTSubmitting(false);
+
+    if (res.success) {
+      showToast('✓ Data tip potong kaca 3% berhasil disimpan!');
+      setInputModalOpen(false);
+      setTNotes('');
+      await loadData();
+    } else {
+      showToast(res.message || 'Gagal menyimpan data tip potong kaca.', true);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {toast && (
@@ -235,6 +308,18 @@ export const GlassTipListPage: React.FC = () => {
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-kuk-maroon" />
               <span>Ekspor CSV</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (employees.length > 0 && !tEmpId) setTEmpId(employees[0].id);
+                if (glassTypes.length > 0 && !tGlassTypeId) setTGlassTypeId(glassTypes[0].id);
+                setInputModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-kuk-maroon text-white hover:bg-kuk-maroon-dark rounded-xl text-xs font-semibold transition-colors shadow-xs"
+            >
+              <Plus className="w-4 h-4 text-kuk-gold" />
+              <span>Catat Tip Potong Kaca</span>
             </button>
 
             <button
@@ -917,6 +1002,193 @@ export const GlassTipListPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Input Catat Tip Potong Kaca 3% (Sesuai Referensi Web KUK) */}
+      {inputModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-kuk-maroon text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Scissors className="w-5 h-5 text-kuk-gold" />
+                <div>
+                  <h2 className="font-bold text-sm">Catat Tip Potong Kaca 3%</h2>
+                  <p className="text-[11px] text-gray-200">
+                    Kalkulasi komisi tip potong kaca unit {activeUnit?.name || ''} otomatis.
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setInputModalOpen(false)} className="text-white/80 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTip} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Pilih Karyawan Pemotong *</label>
+                <select
+                  required
+                  value={tEmpId}
+                  onChange={(e) => setTEmpId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                >
+                  <option value="" disabled>-- Pilih Karyawan --</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name} ({emp.employee_code}) — {emp.position?.title || emp.department?.name || 'Operasional'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Jenis Kaca & Tarif Dasar *</label>
+                <select
+                  required
+                  value={tGlassTypeId}
+                  onChange={(e) => setTGlassTypeId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-kuk-maroon/20 focus:border-kuk-maroon"
+                >
+                  <option value="" disabled>-- Pilih Jenis Kaca --</option>
+                  {glassTypes.map((gt) => {
+                    const r = glassRates.find((rate) => rate.glass_type_id === gt.id);
+                    const p = r?.price_per_sqm || 0;
+                    return (
+                      <option key={gt.id} value={gt.id}>
+                        {gt.name} ({gt.thickness_mm}mm) — {formatRupiah(p)}/m²
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-gray-800 text-xs">Mode Input Dimensi / Luas:</span>
+                  <div className="flex bg-gray-200 p-0.5 rounded-lg text-[11px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setTInputMode('AREA')}
+                      className={`px-3 py-1 rounded-md transition-colors ${
+                        tInputMode === 'AREA' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600'
+                      }`}
+                    >
+                      Luas Langsung (m²)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTInputMode('DIMENSION')}
+                      className={`px-3 py-1 rounded-md transition-colors ${
+                        tInputMode === 'DIMENSION' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600'
+                      }`}
+                    >
+                      Panjang × Tinggi (cm)
+                    </button>
+                  </div>
+                </div>
+
+                {tInputMode === 'AREA' ? (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">Luas Kaca (m²)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0.01}
+                      required
+                      value={tAreaSqm}
+                      onChange={(e) => setTAreaSqm(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 text-sm font-bold border border-gray-200 rounded-xl bg-white"
+                      placeholder="Contoh: 1.5"
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">Panjang (cm)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={tLengthCm}
+                        onChange={(e) => setTLengthCm(parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-xl bg-white"
+                        placeholder="Contoh: 150"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">Tinggi / Lebar (cm)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={tHeightCm}
+                        onChange={(e) => setTHeightCm(parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-xl bg-white"
+                        placeholder="Contoh: 100"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-[11px] text-gray-500 font-medium">
+                  Kalkulasi Luas Terhitung: <strong className="text-gray-900 font-mono">{calculatedSqm} m²</strong>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3.5 bg-kuk-maroon/5 border border-kuk-maroon/20 rounded-xl">
+                <div>
+                  <div className="text-[11px] text-gray-500 font-medium">Total Harga Kaca:</div>
+                  <div className="text-sm font-bold text-gray-900 mt-0.5">{formatRupiah(totalGlassPrice)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-kuk-maroon font-bold uppercase tracking-wider">Tip Karyawan (3%):</div>
+                  <div className="text-base font-extrabold text-kuk-maroon mt-0.5">{formatRupiah(tipAmount)}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Tanggal Pemotongan</label>
+                  <input
+                    type="date"
+                    required
+                    value={tDate}
+                    onChange={(e) => setTDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">No. Nota / Catatan (Opsional)</label>
+                  <input
+                    type="text"
+                    value={tNotes}
+                    onChange={(e) => setTNotes(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white"
+                    placeholder="Contoh: Nota #K-1029"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setInputModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={tSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-kuk-maroon hover:bg-kuk-maroon-dark rounded-xl disabled:opacity-50 transition-colors shadow-xs flex items-center gap-1.5"
+                >
+                  <span>💾</span>
+                  <span>{tSubmitting ? 'Menyimpan...' : 'Simpan Data Tip Kaca'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
