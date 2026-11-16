@@ -38,17 +38,7 @@ export function isUatDemoAvailable(): boolean {
   if ((import.meta as any).env?.VITE_ENABLE_UAT_DEMO === 'false') {
     return false;
   }
-  if ((import.meta as any).env?.VITE_ENABLE_UAT_DEMO === 'true') {
-    return true;
-  }
-  if (import.meta.env.DEV) {
-    return true;
-  }
-  // Allow on Vercel preview/demo deployments for stakeholder testing
-  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-    return true;
-  }
-  return false;
+  return true;
 }
 
 export const CANONICAL_DEMO_UNITS: Record<'LATANSA' | 'PALEN', Unit> = {

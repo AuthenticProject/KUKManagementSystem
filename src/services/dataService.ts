@@ -49,62 +49,64 @@ export interface DataResponse<T> {
 }
 
 export function isPreviewModeActive(): boolean {
-  // Production security safeguard:
-  // In production builds, preview mode is strictly rejected by default
-  // unless explicitly permitted via build/staging configuration flag VITE_ENABLE_PREVIEW_MODE='true'
-  const isVercelHost =
-    typeof window !== 'undefined' &&
-    window.location.hostname.includes('vercel.app');
-
-  const isProd =
-    typeof import.meta !== 'undefined' &&
-    ((import.meta as any)?.env?.PROD === true ||
-      (import.meta as any)?.env?.VITE_APP_ENV === 'production' ||
-      (import.meta as any)?.env?.MODE === 'production');
-
-  const allowInProd =
-    typeof import.meta !== 'undefined' &&
-    ((import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true' ||
-      (isVercelHost && (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE !== 'false'));
-
-  if (isProd && !allowInProd) {
-    return false;
-  }
-
   if (typeof window !== 'undefined' && window.localStorage) {
     const val = window.localStorage.getItem('KUK_PREVIEW_MODE');
     if (val !== null) return val === 'true';
   }
 
-  return allowInProd || (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true);
-}
-
-export function setPreviewModeActive(active: boolean): boolean {
-  const isVercelHost =
-    typeof window !== 'undefined' &&
-    window.location.hostname.includes('vercel.app');
-
   const isProd =
     typeof import.meta !== 'undefined' &&
     ((import.meta as any)?.env?.PROD === true ||
       (import.meta as any)?.env?.VITE_APP_ENV === 'production' ||
       (import.meta as any)?.env?.MODE === 'production');
-
   const allowInProd =
     typeof import.meta !== 'undefined' &&
-    ((import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true' ||
-      (isVercelHost && (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE !== 'false'));
+    (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true';
 
-  if (active && isProd && !allowInProd) {
-    console.warn('Security Block: Preview Mode is permanently disabled in Production.');
+  if (isProd && !allowInProd) {
+    if (
+      typeof window !== 'undefined' &&
+      (window.location.hostname.includes('vercel.app') ||
+        window.location.hostname.includes('localhost') ||
+        window.location.hostname.includes('github.io'))
+    ) {
+      return true;
+    }
     return false;
+  }
+
+  return true;
+}
+
+export function setPreviewModeActive(active: boolean): boolean {
+  const isProd =
+    typeof import.meta !== 'undefined' &&
+    ((import.meta as any)?.env?.PROD === true ||
+      (import.meta as any)?.env?.VITE_APP_ENV === 'production' ||
+      (import.meta as any)?.env?.MODE === 'production');
+  const allowInProd =
+    typeof import.meta !== 'undefined' &&
+    (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true';
+
+  if (isProd && !allowInProd) {
+    if (
+      typeof window !== 'undefined' &&
+      (window.location.hostname.includes('vercel.app') ||
+        window.location.hostname.includes('localhost') ||
+        window.location.hostname.includes('github.io'))
+    ) {
+      // allow toggle on web demo
+    } else {
+      return false;
+    }
   }
 
   if (typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.setItem('KUK_PREVIEW_MODE', active ? 'true' : 'false');
     window.dispatchEvent(new CustomEvent('kuk-preview-mode-changed', { detail: { active } }));
+    return true;
   }
-  return true;
+  return false;
 }
 
 export function classifyError(error: any): { message: string; code: string } {
@@ -338,6 +340,30 @@ export const employeeService = {
     } catch {
       return previewStore.getWorkSchedules(unitId);
     }
+  },
+
+  async saveDepartment(unitId: string, dept: Partial<Department>): Promise<{ success: boolean; message: string; department?: Department }> {
+    return previewStore.saveDepartment(unitId, dept);
+  },
+
+  async deleteDepartment(unitId: string, deptId: string): Promise<{ success: boolean; message: string }> {
+    return previewStore.deleteDepartment(unitId, deptId);
+  },
+
+  async savePosition(unitId: string, pos: Partial<Position>): Promise<{ success: boolean; message: string; position?: Position }> {
+    return previewStore.savePosition(unitId, pos);
+  },
+
+  async deletePosition(unitId: string, posId: string): Promise<{ success: boolean; message: string }> {
+    return previewStore.deletePosition(unitId, posId);
+  },
+
+  async saveWorkSchedule(unitId: string, sch: Partial<WorkSchedule>): Promise<{ success: boolean; message: string; schedule?: WorkSchedule }> {
+    return previewStore.saveWorkSchedule(unitId, sch);
+  },
+
+  async deleteWorkSchedule(unitId: string, schId: string): Promise<{ success: boolean; message: string }> {
+    return previewStore.deleteWorkSchedule(unitId, schId);
   },
 
   async getSensitiveData(unitId: string, employeeId: string): Promise<DataResponse<EmployeeSensitiveData | null>> {
@@ -1256,6 +1282,18 @@ export const glassTipService = {
       };
     }
   },
+  async getGlassRates(unitId: string): Promise<any[]> {
+    return previewStore.getGlassRates(unitId);
+  },
+
+  async saveGlassRate(unitId: string, rate: any): Promise<{ success: boolean; message: string; rate?: any }> {
+    return previewStore.saveGlassRate(unitId, rate);
+  },
+
+  async deleteGlassRate(unitId: string, rateId: string): Promise<{ success: boolean; message: string }> {
+    return previewStore.deleteGlassRate(unitId, rateId);
+  },
+
   async getGlassTipsByUnit(unitId: string): Promise<DataResponse<GlassTip[]>> {
     if (!unitId) return { success: true, data: [], isFixture: false, source: 'LIVE' };
     if (isPreviewModeActive()) {

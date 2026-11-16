@@ -42,6 +42,10 @@ export class PreviewStore {
   private sensitiveData: Record<string, EmployeeSensitiveData> = {};
   private attendanceRecords: Record<string, AttendanceDailyRecord[]> = {};
   private jobHistories: Record<string, EmployeeJobHistory[]> = {};
+  private departments: Record<string, Department[]> = {};
+  private positions: Record<string, Position[]> = {};
+  private glassRates: Record<string, any[]> = {};
+  private workSchedules: Record<string, WorkSchedule[]> = {};
   private initialized: boolean = false;
 
   private getStorage(): Storage | null {
@@ -69,6 +73,10 @@ export class PreviewStore {
         sensitiveData: this.sensitiveData,
         attendanceRecords: this.attendanceRecords,
         jobHistories: this.jobHistories,
+        departments: this.departments,
+        positions: this.positions,
+        glassRates: this.glassRates,
+        workSchedules: this.workSchedules,
       }));
     } catch {
       // safe fallback
@@ -95,6 +103,10 @@ export class PreviewStore {
         this.sensitiveData = parsed.sensitiveData || {};
         this.attendanceRecords = parsed.attendanceRecords || {};
         this.jobHistories = parsed.jobHistories || {};
+        this.departments = parsed.departments || {};
+        this.positions = parsed.positions || {};
+        this.glassRates = parsed.glassRates || {};
+        this.workSchedules = parsed.workSchedules || {};
         return true;
       }
     } catch {
@@ -118,6 +130,10 @@ export class PreviewStore {
     if (!this.payrollPeriods[unitId]) this.payrollPeriods[unitId] = this.createDefaultPayrollPeriods(unitId);
     if (!this.cashExpenses[unitId]) this.cashExpenses[unitId] = this.createDefaultCashExpenses(unitId);
     if (!this.briefingSessions[unitId]) this.briefingSessions[unitId] = this.createDefaultBriefings(unitId);
+    if (!this.departments[unitId]) this.departments[unitId] = this.createDefaultDepartments(unitId);
+    if (!this.positions[unitId]) this.positions[unitId] = this.createDefaultPositions(unitId);
+    if (!this.glassRates[unitId]) this.glassRates[unitId] = this.createDefaultGlassRates(unitId);
+    if (!this.workSchedules[unitId]) this.workSchedules[unitId] = this.createDefaultWorkSchedules(unitId);
   }
 
   public reset(): void {
@@ -133,6 +149,10 @@ export class PreviewStore {
     this.briefingSessions = {};
     this.sensitiveData = {};
     this.attendanceRecords = {};
+    this.departments = {};
+    this.positions = {};
+    this.glassRates = {};
+    this.workSchedules = {};
     this.initialized = false;
     const storage = this.getStorage();
     if (storage) storage.removeItem('KUK_PREVIEW_STORE_V1');
@@ -150,37 +170,147 @@ export class PreviewStore {
   }
 
   public getDepartments(unitId: string): Department[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    if (isPalen) {
-      return [
-        { id: 'dept-palen-01', unit_id: unitId, code: 'GUDANG', name: 'Gudang & Logistik', is_active: true, created_at: '' },
-        { id: 'dept-palen-02', unit_id: unitId, code: 'ADM', name: 'Administrasi & Keuangan', is_active: true, created_at: '' },
-      ];
-    }
-    return [
-      { id: 'dept-01', unit_id: unitId, code: 'GUDANG', name: 'Gudang & Logistik', is_active: true, created_at: '' },
-      { id: 'dept-02', unit_id: unitId, code: 'ADM', name: 'Administrasi & Keuangan', is_active: true, created_at: '' },
-    ];
+    this.initUnit(unitId);
+    return this.departments[unitId] || [];
+  }
+
+  public saveDepartment(unitId: string, dept: Partial<Department>): { success: boolean; message: string; department?: Department } {
+    this.initUnit(unitId);
+    const list = [...this.getDepartments(unitId)];
+    if (!dept.name || !dept.name.trim()) return { success: false, message: 'Nama departemen wajib diisi.' };
+    const id = dept.id || `dept-${Date.now()}`;
+    const code = (dept.code || dept.name.toUpperCase().replace(/\s+/g, '_').slice(0, 10)).trim();
+    const existingIdx = list.findIndex(d => d.id === id);
+    const item: Department = {
+      id,
+      unit_id: unitId,
+      code,
+      name: dept.name.trim(),
+      is_active: dept.is_active !== undefined ? dept.is_active : true,
+      created_at: new Date().toISOString(),
+    };
+    if (existingIdx >= 0) list[existingIdx] = item;
+    else list.push(item);
+    this.departments[unitId] = list;
+    this.saveToStorage();
+    return { success: true, message: `Departemen "${item.name}" berhasil disimpan.`, department: item };
+  }
+
+  public deleteDepartment(unitId: string, deptId: string): { success: boolean; message: string } {
+    this.initUnit(unitId);
+    const list = this.getDepartments(unitId).filter(d => d.id !== deptId);
+    this.departments[unitId] = list;
+    this.saveToStorage();
+    return { success: true, message: 'Departemen berhasil dihapus.' };
   }
 
   public getPositions(unitId: string): Position[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    if (isPalen) {
-      return [
-        { id: 'pos-palen-01', unit_id: unitId, department_id: 'dept-palen-01', code: 'CUTTER', title: 'Tukang Potong Kaca', level: 2, is_active: true, created_at: '' },
-        { id: 'pos-palen-02', unit_id: unitId, department_id: 'dept-palen-02', code: 'KASIR', title: 'Kasir Toko', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
-      ];
-    }
-    return [
-      { id: 'pos-01', unit_id: unitId, department_id: 'dept-01', code: 'SOPIR', title: 'Sopir & Pemotong Kaca', level: 2, is_active: true, created_at: '' },
-      { id: 'pos-02', unit_id: unitId, department_id: 'dept-02', code: 'ADM3', title: 'Admin 3 (Operasional Toko)', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
-    ];
+    this.initUnit(unitId);
+    return this.positions[unitId] || [];
+  }
+
+  public savePosition(unitId: string, pos: Partial<Position>): { success: boolean; message: string; position?: Position } {
+    this.initUnit(unitId);
+    const list = [...this.getPositions(unitId)];
+    if (!pos.title || !pos.title.trim()) return { success: false, message: 'Judul jabatan wajib diisi.' };
+    const id = pos.id || `pos-${Date.now()}`;
+    const code = (pos.code || pos.title.toUpperCase().replace(/\s+/g, '_').slice(0, 10)).trim();
+    const existingIdx = list.findIndex(p => p.id === id);
+    const item: Position = {
+      id,
+      unit_id: unitId,
+      department_id: pos.department_id || 'dept-01',
+      code,
+      title: pos.title.trim(),
+      level: pos.level || 2,
+      is_active: pos.is_active !== undefined ? pos.is_active : true,
+      allowed_leave_days_of_week: pos.allowed_leave_days_of_week,
+      created_at: new Date().toISOString(),
+    };
+    if (existingIdx >= 0) list[existingIdx] = item;
+    else list.push(item);
+    this.positions[unitId] = list;
+    this.saveToStorage();
+    return { success: true, message: `Jabatan "${item.title}" berhasil disimpan.`, position: item };
+  }
+
+  public deletePosition(unitId: string, posId: string): { success: boolean; message: string } {
+    this.initUnit(unitId);
+    const list = this.getPositions(unitId).filter(p => p.id !== posId);
+    this.positions[unitId] = list;
+    this.saveToStorage();
+    return { success: true, message: 'Jabatan berhasil dihapus.' };
+  }
+
+  public getGlassRates(unitId: string): any[] {
+    this.initUnit(unitId);
+    return this.glassRates[unitId] || [];
+  }
+
+  public saveGlassRate(unitId: string, rate: { id?: string; name: string; thickness_mm?: number; price_per_sqm: number; default_percentage?: number; is_active?: boolean }): { success: boolean; message: string; rate?: any } {
+    this.initUnit(unitId);
+    const list = [...this.getGlassRates(unitId)];
+    if (!rate.name || !rate.name.trim()) return { success: false, message: 'Nama jenis kaca wajib diisi.' };
+    if (!rate.price_per_sqm || rate.price_per_sqm <= 0) return { success: false, message: 'Harga dasar per m² wajib lebih dari 0.' };
+    const id = rate.id || `gt-${Date.now()}`;
+    const existingIdx = list.findIndex(r => r.id === id);
+    const item = {
+      id,
+      unit_id: unitId,
+      name: rate.name.trim(),
+      thickness_mm: rate.thickness_mm || 5,
+      price_per_sqm: Number(rate.price_per_sqm),
+      default_percentage: rate.default_percentage !== undefined ? rate.default_percentage : 0.03,
+      is_active: rate.is_active !== undefined ? rate.is_active : true,
+    };
+    if (existingIdx >= 0) list[existingIdx] = item;
+    else list.push(item);
+    this.glassRates[unitId] = list;
+    this.saveToStorage();
+    return { success: true, message: `Tarif kaca "${item.name}" berhasil disimpan.`, rate: item };
+  }
+
+  public deleteGlassRate(unitId: string, rateId: string): { success: boolean; message: string } {
+    this.initUnit(unitId);
+    const list = this.getGlassRates(unitId).filter(r => r.id !== rateId);
+    this.glassRates[unitId] = list;
+    this.saveToStorage();
+    return { success: true, message: 'Jenis kaca berhasil dihapus.' };
   }
 
   public getWorkSchedules(unitId: string): WorkSchedule[] {
-    return [
-      { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
-    ];
+    this.initUnit(unitId);
+    return this.workSchedules[unitId] || [];
+  }
+
+  public saveWorkSchedule(unitId: string, sch: Partial<WorkSchedule>): { success: boolean; message: string; schedule?: WorkSchedule } {
+    this.initUnit(unitId);
+    const list = [...this.getWorkSchedules(unitId)];
+    if (!sch.name || !sch.name.trim()) return { success: false, message: 'Nama jadwal kerja wajib diisi.' };
+    const id = sch.id || `sch-${Date.now()}`;
+    const existingIdx = list.findIndex(s => s.id === id);
+    const item: WorkSchedule = {
+      id,
+      unit_id: unitId,
+      name: sch.name.trim(),
+      start_time: sch.start_time || '08:00',
+      end_time: sch.end_time || '17:00',
+      late_tolerance_minutes: sch.late_tolerance_minutes !== undefined ? sch.late_tolerance_minutes : 15,
+      is_active: sch.is_active !== undefined ? sch.is_active : true,
+    };
+    if (existingIdx >= 0) list[existingIdx] = item;
+    else list.push(item);
+    this.workSchedules[unitId] = list;
+    this.saveToStorage();
+    return { success: true, message: `Jadwal kerja "${item.name}" berhasil disimpan.`, schedule: item };
+  }
+
+  public deleteWorkSchedule(unitId: string, schId: string): { success: boolean; message: string } {
+    this.initUnit(unitId);
+    const list = this.getWorkSchedules(unitId).filter(s => s.id !== schId);
+    this.workSchedules[unitId] = list;
+    this.saveToStorage();
+    return { success: true, message: 'Jadwal kerja berhasil dihapus.' };
   }
 
   public saveEmployee(unitId: string, employee: Partial<Employee>): { success: boolean; message: string } {
@@ -929,7 +1059,12 @@ export class PreviewStore {
       'gt-01': { price_per_sqm: 120000, default_percentage: 0.03, name: 'Kaca Polos 5mm' },
     };
 
-    const rate = masterRates[payload.glass_type_id];
+    const ratesList = this.getGlassRates(unitId);
+    const matchedFromStore = ratesList.find(r => r.id === payload.glass_type_id);
+    const rate = matchedFromStore
+      ? { price_per_sqm: matchedFromStore.price_per_sqm, default_percentage: matchedFromStore.default_percentage || 0.03, name: matchedFromStore.name }
+      : masterRates[payload.glass_type_id];
+
     if (!payload.glass_type_id || payload.glass_type_id === 'INVALID_TYPE' || !rate) {
       return { success: false, message: 'Validasi Gagal: Tipe kaca tidak valid atau master tarif kaca tidak ditemukan.' };
     }
@@ -1784,6 +1919,61 @@ export class PreviewStore {
         approved_at: new Date(Date.now() - 80000000).toISOString(),
         created_at: new Date(Date.now() - 86400000).toISOString(),
       },
+    ];
+  }
+
+  private createDefaultDepartments(unitId: string): Department[] {
+    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
+    if (isPalen) {
+      return [
+        { id: 'dept-palen-01', unit_id: unitId, code: 'GUDANG', name: 'Gudang & Logistik', is_active: true, created_at: '' },
+        { id: 'dept-palen-02', unit_id: unitId, code: 'ADM', name: 'Administrasi & Keuangan', is_active: true, created_at: '' },
+      ];
+    }
+    return [
+      { id: 'dept-01', unit_id: unitId, code: 'GUDANG', name: 'Gudang & Logistik', is_active: true, created_at: '' },
+      { id: 'dept-02', unit_id: unitId, code: 'ADM', name: 'Administrasi & Keuangan', is_active: true, created_at: '' },
+      { id: 'dept-03', unit_id: unitId, code: 'TOKO', name: 'Toko & Penjualan', is_active: true, created_at: '' },
+      { id: 'dept-04', unit_id: unitId, code: 'KASIR', name: 'Kasir & Pelayanan', is_active: true, created_at: '' },
+    ];
+  }
+
+  private createDefaultPositions(unitId: string): Position[] {
+    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
+    if (isPalen) {
+      return [
+        { id: 'pos-palen-01', unit_id: unitId, department_id: 'dept-palen-01', code: 'CUTTER', title: 'Tukang Potong Kaca', level: 2, is_active: true, created_at: '' },
+        { id: 'pos-palen-02', unit_id: unitId, department_id: 'dept-palen-02', code: 'KASIR', title: 'Kasir Toko', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
+      ];
+    }
+    return [
+      { id: 'pos-01', unit_id: unitId, department_id: 'dept-01', code: 'SOPIR', title: 'Admin 2 (Operasional)', level: 2, is_active: true, created_at: '' },
+      { id: 'pos-02', unit_id: unitId, department_id: 'dept-02', code: 'ADM3', title: 'Admin 3 (Operasional Toko)', level: 3, allowed_leave_days_of_week: [0], is_active: true, created_at: '' },
+      { id: 'pos-03', unit_id: unitId, department_id: 'dept-03', code: 'KEPALA_TOKO', title: 'Kepala Toko', level: 1, is_active: true, created_at: '' },
+      { id: 'pos-04', unit_id: unitId, department_id: 'dept-04', code: 'KASIR', title: 'Kasir Toko', level: 3, is_active: true, created_at: '' },
+      { id: 'pos-05', unit_id: unitId, department_id: 'dept-01', code: 'GUDANG', title: 'Staf Gudang & Logistik', level: 2, is_active: true, created_at: '' },
+      { id: 'pos-06', unit_id: unitId, department_id: 'dept-01', code: 'DRIVER', title: 'Sopir Pengiriman', level: 2, is_active: true, created_at: '' },
+      { id: 'pos-07', unit_id: unitId, department_id: 'dept-01', code: 'CUTTER', title: 'Tukang Potong Kaca', level: 2, is_active: true, created_at: '' },
+    ];
+  }
+
+  private createDefaultGlassRates(unitId: string): any[] {
+    return [
+      { id: 'gt-001', unit_id: unitId, name: 'Kaca Polos Bening 5mm', thickness_mm: 5, price_per_sqm: 120000, default_percentage: 0.03, is_active: true },
+      { id: 'gt-002', unit_id: unitId, name: 'Kaca Polos Bening 8mm', thickness_mm: 8, price_per_sqm: 185000, default_percentage: 0.03, is_active: true },
+      { id: 'gt-003', unit_id: unitId, name: 'Kaca Polos Bening 10mm (Tempered)', thickness_mm: 10, price_per_sqm: 350000, default_percentage: 0.03, is_active: true },
+      { id: 'gt-004', unit_id: unitId, name: 'Kaca Riben Gelap 5mm', thickness_mm: 5, price_per_sqm: 145000, default_percentage: 0.03, is_active: true },
+      { id: 'gt-005', unit_id: unitId, name: 'Kaca Cermin Silver 5mm', thickness_mm: 5, price_per_sqm: 160000, default_percentage: 0.03, is_active: true },
+      { id: 'gt-01', unit_id: unitId, name: 'Kaca Polos 5mm', thickness_mm: 5, price_per_sqm: 120000, default_percentage: 0.03, is_active: true },
+      { id: 'gt-006', unit_id: unitId, name: 'Kaca Bening 3mm', thickness_mm: 3, price_per_sqm: 90000, default_percentage: 0.03, is_active: true },
+      { id: 'gt-007', unit_id: unitId, name: 'Kaca Polos 3mm', thickness_mm: 3, price_per_sqm: 85000, default_percentage: 0.03, is_active: true },
+    ];
+  }
+
+  private createDefaultWorkSchedules(unitId: string): WorkSchedule[] {
+    return [
+      { id: 'sch-01', unit_id: unitId, name: 'Reguler Operasional 6 Hari', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, is_active: true },
+      { id: 'sch-02', unit_id: unitId, name: 'Shift Pagi Operasional Toko', start_time: '07:30', end_time: '16:30', late_tolerance_minutes: 10, is_active: true },
     ];
   }
 }

@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { systemService, isPreviewModeActive, setPreviewModeActive } from '@/services/dataService';
+import {
+  systemService,
+  employeeService,
+  glassTipService,
+  isPreviewModeActive,
+  setPreviewModeActive,
+} from '@/services/dataService';
 import { userAccountStore, StoredStaffUser } from '@/services/userAccountStore';
-import type { UserAccount, BusinessUnit, UserRole } from '@/types/models';
+import type { UserAccount, BusinessUnit, UserRole, Department, Position, WorkSchedule } from '@/types/models';
 import {
   Settings,
   Users,
@@ -23,12 +29,16 @@ import {
   Search,
   KeyRound,
   UserCheck,
+  Layers,
+  Briefcase,
+  Clock,
+  Percent,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
 
 export const SettingsPage: React.FC = () => {
   const { isSuperAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState<'USERS' | 'RBAC' | 'UNITS' | 'PREVIEW'>('USERS');
+  const [activeTab, setActiveTab] = useState<'USERS' | 'MASTER' | 'RBAC' | 'UNITS' | 'PREVIEW'>('USERS');
   const [staffUsers, setStaffUsers] = useState<StoredStaffUser[]>([]);
   const [units, setUnits] = useState<BusinessUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -40,6 +50,49 @@ export const SettingsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUnitFilter, setSelectedUnitFilter] = useState<'ALL' | 'bangunan' | 'palen'>('ALL');
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+
+  // Master Data State
+  const [masterUnit, setMasterUnit] = useState<string>('unit_bangunan_01');
+  const [masterSubTab, setMasterSubTab] = useState<'TARIF_KACA' | 'DEPARTEMEN' | 'JABATAN' | 'JADWAL'>('TARIF_KACA');
+  const [glassRates, setGlassRates] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([]);
+
+  // Master Modals & Forms
+  const [rateModalOpen, setRateModalOpen] = useState(false);
+  const [rateForm, setRateForm] = useState<{ id?: string; name: string; thickness_mm: number; price_per_sqm: number; default_percentage: number; is_active: boolean }>({
+    name: '',
+    thickness_mm: 5,
+    price_per_sqm: 100000,
+    default_percentage: 3,
+    is_active: true,
+  });
+
+  const [deptModalOpen, setDeptModalOpen] = useState(false);
+  const [deptForm, setDeptForm] = useState<{ id?: string; name: string; code: string; description: string }>({
+    name: '',
+    code: '',
+    description: '',
+  });
+
+  const [posModalOpen, setPosModalOpen] = useState(false);
+  const [posForm, setPosForm] = useState<{ id?: string; title: string; code: string; department_id: string; level: number; description: string }>({
+    title: '',
+    code: '',
+    department_id: '',
+    level: 1,
+    description: '',
+  });
+
+  const [schModalOpen, setSchModalOpen] = useState(false);
+  const [schForm, setSchForm] = useState<{ id?: string; name: string; start_time: string; end_time: string; late_tolerance_minutes: number; is_active: boolean }>({
+    name: '',
+    start_time: '08:00',
+    end_time: '17:00',
+    late_tolerance_minutes: 15,
+    is_active: true,
+  });
 
   // Account Modal (Create / Edit)
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -77,6 +130,23 @@ export const SettingsPage: React.FC = () => {
   const isPreviewBlocked = isProduction && !allowInProd;
   const canTogglePreview = isSuperAdmin && !isPreviewBlocked;
 
+  const loadMasterData = async (unitId: string = masterUnit) => {
+    try {
+      const [gr, deptRes, posRes, sch] = await Promise.all([
+        glassTipService.getGlassRates(unitId),
+        employeeService.getDepartments(unitId),
+        employeeService.getPositions(unitId),
+        employeeService.getWorkSchedules(unitId),
+      ]);
+      setGlassRates(gr || []);
+      setDepartments(Array.isArray(deptRes) ? deptRes : (deptRes as any)?.data || []);
+      setPositions(Array.isArray(posRes) ? posRes : (posRes as any)?.data || []);
+      setWorkSchedules(sch || []);
+    } catch {
+      // Ignored
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
@@ -85,10 +155,11 @@ export const SettingsPage: React.FC = () => {
     const sUsers = userAccountStore.getUsers();
     setStaffUsers(sUsers);
 
-    // 2. Load system services
+    // 2. Load system services & master data
     const [uRes, bUnits] = await Promise.all([
       systemService.getUsers(),
       systemService.getUnits(),
+      loadMasterData(masterUnit),
     ]);
 
     if (!uRes.success && uRes.error) {
@@ -102,6 +173,10 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    loadMasterData(masterUnit);
+  }, [masterUnit]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -242,6 +317,79 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  // --- Master Data Handlers ---
+  const handleSaveGlassRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await glassTipService.saveGlassRate(masterUnit, rateForm);
+    showToast(res.message);
+    if (res.success) {
+      setRateModalOpen(false);
+      loadMasterData(masterUnit);
+    }
+  };
+
+  const handleDeleteGlassRate = async (id: string, name: string) => {
+    if (window.confirm(`Hapus jenis kaca "${name}"?`)) {
+      const res = await glassTipService.deleteGlassRate(masterUnit, id);
+      showToast(res.message);
+      loadMasterData(masterUnit);
+    }
+  };
+
+  const handleSaveDepartment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await employeeService.saveDepartment(masterUnit, deptForm);
+    showToast(res.message);
+    if (res.success) {
+      setDeptModalOpen(false);
+      loadMasterData(masterUnit);
+    }
+  };
+
+  const handleDeleteDepartment = async (id: string, name: string) => {
+    if (window.confirm(`Hapus departemen "${name}"?`)) {
+      const res = await employeeService.deleteDepartment(masterUnit, id);
+      showToast(res.message);
+      loadMasterData(masterUnit);
+    }
+  };
+
+  const handleSavePosition = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await employeeService.savePosition(masterUnit, posForm);
+    showToast(res.message);
+    if (res.success) {
+      setPosModalOpen(false);
+      loadMasterData(masterUnit);
+    }
+  };
+
+  const handleDeletePosition = async (id: string, title: string) => {
+    if (window.confirm(`Hapus jabatan "${title}"?`)) {
+      const res = await employeeService.deletePosition(masterUnit, id);
+      showToast(res.message);
+      loadMasterData(masterUnit);
+    }
+  };
+
+  const handleSaveWorkSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await employeeService.saveWorkSchedule(masterUnit, schForm);
+    showToast(res.message);
+    if (res.success) {
+      setSchModalOpen(false);
+      loadMasterData(masterUnit);
+    }
+  };
+
+  const handleDeleteWorkSchedule = async (id: string, name: string) => {
+    if (window.confirm(`Hapus jadwal kerja "${name}"?`)) {
+      const res = await employeeService.deleteWorkSchedule(masterUnit, id);
+      showToast(res.message);
+      loadMasterData(masterUnit);
+    }
+  };
+
   // Filtered staff users
   const filteredStaffUsers = staffUsers.filter((u) => {
     const matchesSearch =
@@ -323,6 +471,18 @@ export const SettingsPage: React.FC = () => {
         >
           <Users className="w-4 h-4" />
           <span>Pengguna & Akun Staf ({staffUsers.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('MASTER')}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-colors ${
+            activeTab === 'MASTER'
+              ? 'bg-kuk-maroon text-white shadow-xs'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <Database className="w-4 h-4 text-kuk-gold" />
+          <span>Master Data Bisnis</span>
         </button>
 
         <button
@@ -635,6 +795,502 @@ export const SettingsPage: React.FC = () => {
                   Tidak ada akun staf yang cocok dengan kriteria pencarian & filter.
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Master Data Bisnis */}
+      {activeTab === 'MASTER' && (
+        <div className="space-y-4">
+          {/* Header Panel with Unit Selector and Master Categories */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+                <Database className="w-4 h-4 text-kuk-maroon" />
+                <span>Pengelolaan Master Database Bisnis</span>
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Kelola tarif kaca, rumus persentase tip pemotongan, struktur departemen, jabatan operasional, dan jadwal jam kerja.
+              </p>
+            </div>
+
+            {/* Business Unit Switcher */}
+            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl self-start md:self-auto">
+              <button
+                type="button"
+                onClick={() => setMasterUnit('unit_bangunan_01')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  masterUnit === 'unit_bangunan_01'
+                    ? 'bg-kuk-maroon text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🏢 TB KUK La Tansa
+              </button>
+              <button
+                type="button"
+                onClick={() => setMasterUnit('unit_palen_01')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  masterUnit === 'unit_palen_01'
+                    ? 'bg-kuk-maroon text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🏬 KUK Palen
+              </button>
+            </div>
+          </div>
+
+          {/* Master Sub Tabs */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setMasterSubTab('TARIF_KACA')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                masterSubTab === 'TARIF_KACA'
+                  ? 'bg-kuk-maroon text-white border-kuk-maroon shadow-xs'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <Percent className="w-3.5 h-3.5 text-kuk-gold" />
+              <span>Tarif & Jenis Kaca ({glassRates.length})</span>
+            </button>
+            <button
+              onClick={() => setMasterSubTab('DEPARTEMEN')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                masterSubTab === 'DEPARTEMEN'
+                  ? 'bg-kuk-maroon text-white border-kuk-maroon shadow-xs'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Departemen ({departments.length})</span>
+            </button>
+            <button
+              onClick={() => setMasterSubTab('JABATAN')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                masterSubTab === 'JABATAN'
+                  ? 'bg-kuk-maroon text-white border-kuk-maroon shadow-xs'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              <span>Jabatan ({positions.length})</span>
+            </button>
+            <button
+              onClick={() => setMasterSubTab('JADWAL')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                masterSubTab === 'JADWAL'
+                  ? 'bg-kuk-maroon text-white border-kuk-maroon shadow-xs'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Jadwal Kerja ({workSchedules.length})</span>
+            </button>
+          </div>
+
+          {/* SubTab 1: TARIF & JENIS KACA */}
+          {masterSubTab === 'TARIF_KACA' && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-xs text-gray-800">Master Tarif Kaca & Rumus Tip 3%</h3>
+                  <p className="text-2xs text-gray-500 mt-0.5">
+                    Dasar kalkulasi modul Tip Pemotongan Kaca: Estimasi Tip = Luas (m²) × Harga /m² × 3%.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRateForm({
+                      name: '',
+                      thickness_mm: 5,
+                      price_per_sqm: 100000,
+                      default_percentage: 3,
+                      is_active: true,
+                    });
+                    setRateModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-kuk-maroon hover:bg-[#3B0000] rounded-xl shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 text-kuk-gold" />
+                  <span>Tambah Jenis Kaca</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3">Nama Jenis Kaca</th>
+                      <th className="px-4 py-3 text-center">Ketebalan</th>
+                      <th className="px-4 py-3 text-right">Harga Dasar / m²</th>
+                      <th className="px-4 py-3 text-center">Tarif Tip %</th>
+                      <th className="px-4 py-3 text-right">Estimasi Tip / m²</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {glassRates.map((rate: any) => {
+                      const tipPerSqm = (rate.price_per_sqm * (rate.default_percentage || 3)) / 100;
+                      return (
+                        <tr key={rate.id} className="hover:bg-gray-50/70 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-gray-900">{rate.name}</td>
+                          <td className="px-4 py-3 text-center text-gray-600 font-mono">
+                            {rate.thickness_mm ? `${rate.thickness_mm} mm` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-medium text-gray-800">
+                            Rp {Number(rate.price_per_sqm || 0).toLocaleString('id-ID')}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 font-bold border border-amber-200 text-2xs">
+                              {rate.default_percentage || 3}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">
+                            Rp {tipPerSqm.toLocaleString('id-ID')}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full font-bold text-2xs border ${
+                                rate.is_active !== false
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-gray-100 text-gray-500 border-gray-200'
+                              }`}
+                            >
+                              {rate.is_active !== false ? 'AKTIF' : 'NON-AKTIF'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRateForm({
+                                    id: rate.id,
+                                    name: rate.name,
+                                    thickness_mm: rate.thickness_mm || 5,
+                                    price_per_sqm: rate.price_per_sqm || 0,
+                                    default_percentage: rate.default_percentage || 3,
+                                    is_active: rate.is_active !== false,
+                                  });
+                                  setRateModalOpen(true);
+                                }}
+                                className="px-2 py-1 text-xs text-kuk-maroon hover:bg-kuk-maroon-50 border border-kuk-maroon/20 rounded-lg font-medium inline-flex items-center gap-1"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteGlassRate(rate.id, rate.name)}
+                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {glassRates.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-xs">
+                          Belum ada master tarif kaca terdaftar untuk unit ini.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* SubTab 2: DEPARTEMEN */}
+          {masterSubTab === 'DEPARTEMEN' && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-xs text-gray-800">Master Departemen Organisasi</h3>
+                  <p className="text-2xs text-gray-500 mt-0.5">
+                    Struktur divisi/bagian operasional untuk penempatan karyawan dan validasi izin cuti.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeptForm({ name: '', code: '', description: '' });
+                    setDeptModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-kuk-maroon hover:bg-[#3B0000] rounded-xl shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 text-kuk-gold" />
+                  <span>Tambah Departemen</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3">Kode</th>
+                      <th className="px-4 py-3">Nama Departemen</th>
+                      <th className="px-4 py-3">Deskripsi</th>
+                      <th className="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {departments.map((dept) => (
+                      <tr key={dept.id} className="hover:bg-gray-50/70 transition-colors">
+                        <td className="px-4 py-3 font-mono font-bold text-kuk-maroon">{dept.code}</td>
+                        <td className="px-4 py-3 font-semibold text-gray-900">{dept.name}</td>
+                        <td className="px-4 py-3 text-gray-600">{dept.description || '-'}</td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeptForm({
+                                  id: dept.id,
+                                  name: dept.name,
+                                  code: dept.code,
+                                  description: dept.description || '',
+                                });
+                                setDeptModalOpen(true);
+                              }}
+                              className="px-2 py-1 text-xs text-kuk-maroon hover:bg-kuk-maroon-50 border border-kuk-maroon/20 rounded-lg font-medium inline-flex items-center gap-1"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDepartment(dept.id, dept.name)}
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {departments.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-gray-400 text-xs">
+                          Belum ada departemen terdaftar untuk unit ini.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* SubTab 3: JABATAN */}
+          {masterSubTab === 'JABATAN' && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-xs text-gray-800">Master Posisi & Jabatan Karyawan</h3>
+                  <p className="text-2xs text-gray-500 mt-0.5">
+                    Klasifikasi jabatan, level hierarki wewenang, dan departemen penugasan.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPosForm({
+                      title: '',
+                      code: '',
+                      department_id: departments[0]?.id || '',
+                      level: 1,
+                      description: '',
+                    });
+                    setPosModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-kuk-maroon hover:bg-[#3B0000] rounded-xl shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 text-kuk-gold" />
+                  <span>Tambah Jabatan</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3">Kode</th>
+                      <th className="px-4 py-3">Nama Jabatan</th>
+                      <th className="px-4 py-3">Departemen</th>
+                      <th className="px-4 py-3 text-center">Level Hierarki</th>
+                      <th className="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {positions.map((pos) => {
+                      const deptName = departments.find((d) => d.id === pos.department_id)?.name || 'Umum';
+                      return (
+                        <tr key={pos.id} className="hover:bg-gray-50/70 transition-colors">
+                          <td className="px-4 py-3 font-mono font-bold text-kuk-maroon">{pos.code}</td>
+                          <td className="px-4 py-3 font-semibold text-gray-900">{pos.title}</td>
+                          <td className="px-4 py-3 text-gray-600">{deptName}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200 text-2xs">
+                              Level {pos.level || 1}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPosForm({
+                                    id: pos.id,
+                                    title: pos.title,
+                                    code: pos.code,
+                                    department_id: pos.department_id || departments[0]?.id || '',
+                                    level: pos.level || 1,
+                                    description: (pos as any).description || '',
+                                  });
+                                  setPosModalOpen(true);
+                                }}
+                                className="px-2 py-1 text-xs text-kuk-maroon hover:bg-kuk-maroon-50 border border-kuk-maroon/20 rounded-lg font-medium inline-flex items-center gap-1"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePosition(pos.id, pos.title)}
+                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {positions.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-xs">
+                          Belum ada jabatan terdaftar untuk unit ini.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* SubTab 4: JADWAL KERJA */}
+          {masterSubTab === 'JADWAL' && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-xs text-gray-800">Master Jadwal Kerja & Shift</h3>
+                  <p className="text-2xs text-gray-500 mt-0.5">
+                    Pengaturan jam masuk, jam pulang, dan toleransi keterlambatan presensi harian.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSchForm({
+                      name: '',
+                      start_time: '08:00',
+                      end_time: '17:00',
+                      late_tolerance_minutes: 15,
+                      is_active: true,
+                    });
+                    setSchModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-kuk-maroon hover:bg-[#3B0000] rounded-xl shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 text-kuk-gold" />
+                  <span>Tambah Jadwal</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3">Nama Shift / Jadwal</th>
+                      <th className="px-4 py-3 text-center">Jam Masuk</th>
+                      <th className="px-4 py-3 text-center">Jam Pulang</th>
+                      <th className="px-4 py-3 text-center">Toleransi Terlambat</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {workSchedules.map((sch) => (
+                      <tr key={sch.id} className="hover:bg-gray-50/70 transition-colors">
+                        <td className="px-4 py-3 font-semibold text-gray-900">{sch.name}</td>
+                        <td className="px-4 py-3 text-center font-mono font-bold text-blue-700">{sch.start_time}</td>
+                        <td className="px-4 py-3 text-center font-mono font-bold text-purple-700">{sch.end_time}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 font-bold border border-amber-200 text-2xs">
+                            {sch.late_tolerance_minutes} menit
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-bold text-2xs border ${
+                              sch.is_active !== false
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-gray-100 text-gray-500 border-gray-200'
+                            }`}
+                          >
+                            {sch.is_active !== false ? 'AKTIF' : 'NON-AKTIF'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSchForm({
+                                  id: sch.id,
+                                  name: sch.name,
+                                  start_time: sch.start_time,
+                                  end_time: sch.end_time,
+                                  late_tolerance_minutes: sch.late_tolerance_minutes || 15,
+                                  is_active: sch.is_active !== false,
+                                });
+                                setSchModalOpen(true);
+                              }}
+                              className="px-2 py-1 text-xs text-kuk-maroon hover:bg-kuk-maroon-50 border border-kuk-maroon/20 rounded-lg font-medium inline-flex items-center gap-1"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteWorkSchedule(sch.id, sch.name)}
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {workSchedules.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-xs">
+                          Belum ada jadwal kerja terdaftar untuk unit ini.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -1036,6 +1692,418 @@ export const SettingsPage: React.FC = () => {
                   className="px-4 py-2 text-xs font-semibold text-white bg-kuk-maroon hover:bg-kuk-maroon-700 rounded-lg disabled:opacity-50 transition-colors shadow-xs"
                 >
                   {savingRole ? 'Menyimpan...' : 'Simpan Peran'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL MASTER: TARIF JENIS KACA */}
+      {/* ============================================================== */}
+      {rateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-[#540000] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Percent className="w-5 h-5 text-[#FFCC00]" />
+                <h2 className="font-bold text-sm">
+                  {rateForm.id ? 'Edit Tarif Jenis Kaca' : 'Tambah Jenis Kaca Baru'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRateModalOpen(false)}
+                className="text-white/80 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveGlassRate} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Nama Jenis Kaca <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={rateForm.name}
+                  onChange={(e) => setRateForm({ ...rateForm, name: e.target.value })}
+                  placeholder="Contoh: Kaca Polos 5mm"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Ketebalan (mm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    value={rateForm.thickness_mm}
+                    onChange={(e) => setRateForm({ ...rateForm, thickness_mm: Number(e.target.value) || 0 })}
+                    placeholder="Contoh: 5"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Harga Dasar / m² (Rp) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1000"
+                    step="1000"
+                    value={rateForm.price_per_sqm}
+                    onChange={(e) => setRateForm({ ...rateForm, price_per_sqm: Number(e.target.value) || 0 })}
+                    placeholder="Contoh: 110000"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Tarif Tip (%)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    max="100"
+                    value={rateForm.default_percentage}
+                    onChange={(e) => setRateForm({ ...rateForm, default_percentage: Number(e.target.value) || 3 })}
+                    placeholder="3"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Estimasi Tip / m²</label>
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-mono font-bold text-emerald-700">
+                    Rp {((rateForm.price_per_sqm * rateForm.default_percentage) / 100).toLocaleString('id-ID')}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rateForm.is_active}
+                    onChange={(e) => setRateForm({ ...rateForm, is_active: e.target.checked })}
+                    className="rounded text-[#540000] focus:ring-[#FFCC00] w-4 h-4 cursor-pointer"
+                  />
+                  <span className="font-bold text-gray-800">Status Aktif (Tersedia untuk Nota Tip)</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setRateModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold text-white bg-[#540000] hover:bg-[#3B0000] rounded-xl shadow-xs"
+                >
+                  Simpan Tarif Kaca
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL MASTER: DEPARTEMEN */}
+      {/* ============================================================== */}
+      {deptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-[#540000] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#FFCC00]" />
+                <h2 className="font-bold text-sm">
+                  {deptForm.id ? 'Edit Departemen' : 'Tambah Departemen Baru'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeptModalOpen(false)}
+                className="text-white/80 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDepartment} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Nama Departemen <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={deptForm.name}
+                  onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
+                  placeholder="Contoh: Logistik & Gudang"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Kode Departemen</label>
+                <input
+                  type="text"
+                  value={deptForm.code}
+                  onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value })}
+                  placeholder="Contoh: LOG, OPS, KAS"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl uppercase font-mono focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Deskripsi Departemen</label>
+                <textarea
+                  rows={3}
+                  value={deptForm.description}
+                  onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
+                  placeholder="Uraian tanggung jawab bagian"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setDeptModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold text-white bg-[#540000] hover:bg-[#3B0000] rounded-xl shadow-xs"
+                >
+                  Simpan Departemen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL MASTER: JABATAN */}
+      {/* ============================================================== */}
+      {posModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-[#540000] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-[#FFCC00]" />
+                <h2 className="font-bold text-sm">
+                  {posForm.id ? 'Edit Posisi Jabatan' : 'Tambah Jabatan Baru'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPosModalOpen(false)}
+                className="text-white/80 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePosition} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Nama Jabatan <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={posForm.title}
+                  onChange={(e) => setPosForm({ ...posForm, title: e.target.value })}
+                  placeholder="Contoh: Staff Penjualan & Kasir"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Kode Jabatan</label>
+                  <input
+                    type="text"
+                    value={posForm.code}
+                    onChange={(e) => setPosForm({ ...posForm, code: e.target.value })}
+                    placeholder="Contoh: KSR, MGR"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl uppercase font-mono focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Level Hierarki</label>
+                  <select
+                    value={posForm.level}
+                    onChange={(e) => setPosForm({ ...posForm, level: Number(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  >
+                    <option value={1}>Level 1 - Staff Pelaksana</option>
+                    <option value={2}>Level 2 - Supervisor / Koordinator Lapangan</option>
+                    <option value={3}>Level 3 - Manager / Kepala Toko</option>
+                    <option value={4}>Level 4 - Direksi / Pimpinan</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Departemen Penugasan</label>
+                <select
+                  value={posForm.department_id}
+                  onChange={(e) => setPosForm({ ...posForm, department_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                >
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
+                  {departments.length === 0 && <option value="">Umum</option>}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setPosModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold text-white bg-[#540000] hover:bg-[#3B0000] rounded-xl shadow-xs"
+                >
+                  Simpan Jabatan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL MASTER: JADWAL KERJA */}
+      {/* ============================================================== */}
+      {schModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-[#540000] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-[#FFCC00]" />
+                <h2 className="font-bold text-sm">
+                  {schForm.id ? 'Edit Jadwal Kerja' : 'Tambah Jadwal Kerja Baru'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSchModalOpen(false)}
+                className="text-white/80 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveWorkSchedule} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Nama Shift / Jadwal <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={schForm.name}
+                  onChange={(e) => setSchForm({ ...schForm, name: e.target.value })}
+                  placeholder="Contoh: Shift Pagi Operasional Toko"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Jam Masuk <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={schForm.start_time}
+                    onChange={(e) => setSchForm({ ...schForm, start_time: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl font-mono focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Jam Pulang <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={schForm.end_time}
+                    onChange={(e) => setSchForm({ ...schForm, end_time: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl font-mono focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Toleransi Keterlambatan (menit)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={schForm.late_tolerance_minutes}
+                  onChange={(e) => setSchForm({ ...schForm, late_tolerance_minutes: Number(e.target.value) || 0 })}
+                  placeholder="Contoh: 15"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414]"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={schForm.is_active}
+                    onChange={(e) => setSchForm({ ...schForm, is_active: e.target.checked })}
+                    className="rounded text-[#540000] focus:ring-[#FFCC00] w-4 h-4 cursor-pointer"
+                  />
+                  <span className="font-bold text-gray-800">Status Aktif (Diterapkan untuk Presensi)</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setSchModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold text-white bg-[#540000] hover:bg-[#3B0000] rounded-xl shadow-xs"
+                >
+                  Simpan Jadwal Kerja
                 </button>
               </div>
             </form>
