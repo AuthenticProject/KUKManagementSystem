@@ -232,7 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (typeof window !== 'undefined') {
       try {
         window.sessionStorage.removeItem('kuk_user');
-      } catch (e) {}
+      } catch (e) { }
     }
     clearStoredDemoIdentity();
     setUser(null);
@@ -244,7 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveDemoKey(null);
     try {
       await supabase.auth.signOut();
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const refreshProfile = async () => {

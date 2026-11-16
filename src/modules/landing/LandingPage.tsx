@@ -99,7 +99,7 @@ export const LandingPage: React.FC = () => {
                   className="flex items-center gap-2.5 text-xs font-semibold text-gray-800 hover:text-[#540000] p-2.5 rounded-xl bg-[#F8F9FA] hover:bg-[#FDF2F2] border border-[#E5E5E5] transition-colors"
                 >
                   <Calendar className="w-4 h-4 text-[#540000]" />
-                  <span>Pengajuan Cuti (PIN Auth)</span>
+                  <span>Pengajuan Cuti (Kalender Mandiri)</span>
                 </Link>
                 <Link
                   to="/public/glass-tip"
@@ -110,9 +110,13 @@ export const LandingPage: React.FC = () => {
                 </Link>
               </div>
             </div>
-            <div className="text-[11px] text-gray-400 text-center font-medium">
-              Dilindungi Verifikasi PIN & Inactivity Timeout 60 Detik
-            </div>
+            <Link
+              to="/layanan-karyawan"
+              className="inline-flex items-center justify-between w-full px-4 py-2.5 rounded-xl bg-[#F8F9FA] text-gray-900 font-bold text-xs sm:text-sm group-hover:bg-[#540000] group-hover:text-white transition-all border border-[#E5E5E5]"
+            >
+              <span>Buka Layanan Karyawan</span>
+              <ChevronRight className="w-4 h-4 text-[#FFCC00]" />
+            </Link>
           </div>
 
           {/* KARTU 3: Login Staf */}

@@ -21,6 +21,7 @@ import { CashExpensePage } from '@/modules/finance/CashExpensePage';
 import { PublicGlassTipPage } from '@/modules/public/PublicGlassTipPage';
 import { PublicFleetBookingPage } from '@/modules/public/PublicFleetBookingPage';
 import { PublicLeaveRequestPage } from '@/modules/public/PublicLeaveRequestPage';
+import { PublicLayananKaryawanPage } from '@/modules/public/PublicLayananKaryawanPage';
 import { AuditLogPage } from '@/modules/audit/AuditLogPage';
 import { SettingsPage } from '@/modules/settings/SettingsPage';
 
@@ -32,14 +33,21 @@ export const AppRoutes: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
 
       {/* Rute Kiosk & Formulir Mandiri Publik */}
+      <Route path="/layanan-karyawan" element={<PublicLayananKaryawanPage />} />
+      <Route path="/public/layanan-karyawan" element={<PublicLayananKaryawanPage />} />
+
       <Route path="/public/glass-tip" element={<PublicGlassTipPage />} />
       <Route path="/kiosk/glass-tip" element={<PublicGlassTipPage />} />
+      <Route path="/public/tip" element={<PublicGlassTipPage />} />
 
       <Route path="/public/fleet-booking" element={<PublicFleetBookingPage />} />
       <Route path="/kiosk/fleet-booking" element={<PublicFleetBookingPage />} />
+      <Route path="/peminjaman-kendaraan" element={<PublicFleetBookingPage />} />
+      <Route path="/public/peminjaman" element={<PublicFleetBookingPage />} />
 
       <Route path="/public/leave-request" element={<PublicLeaveRequestPage />} />
       <Route path="/kiosk/leave-request" element={<PublicLeaveRequestPage />} />
+      <Route path="/public/cuti" element={<PublicLeaveRequestPage />} />
 
       {/* Rute Internal Staf (Terproteksi AuthGuard & AppShell) */}
       <Route
