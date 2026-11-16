@@ -31,18 +31,38 @@ function recordResult(id, moduleName, scenario, status, details, screenshot) {
 }
 
 async function switchToRole(page, roleLabel) {
-  const keluarBtn = page.locator('button:has-text("Keluar Demo")').first();
-  if (await keluarBtn.count() > 0 && await keluarBtn.isVisible()) {
-    await keluarBtn.click();
-    await page.waitForURL('**/login', { timeout: 8000 });
-    await page.waitForLoadState('networkidle');
-  } else if (!page.url().includes('/login')) {
+  if (page.url() === 'about:blank' || !page.url().startsWith(BASE_URL)) {
     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
   }
+  await page.evaluate(() => {
+    sessionStorage.clear();
+  });
+  await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
 
-  const roleBtn = page.locator(`button:has-text("${roleLabel}")`).first();
-  await roleBtn.waitFor({ state: 'visible', timeout: 8000 });
-  await roleBtn.click();
+  let username = 'andika';
+  let password = '12345';
+  if (/pimpinan/i.test(roleLabel)) {
+    username = 'fariz';
+    password = '12345';
+  } else if (/palen/i.test(roleLabel)) {
+    username = 'Raju';
+    password = '54321';
+  } else if (/supervisor/i.test(roleLabel)) {
+    username = 'shuva';
+    password = '12345';
+  } else if (/hrd/i.test(roleLabel)) {
+    username = 'irsyadil';
+    password = '150904';
+  } else if (/bendahara|finance/i.test(roleLabel)) {
+    username = 'ari';
+    password = '12345';
+  }
+
+  const select = page.locator('#selectUsername');
+  await select.waitFor({ state: 'visible', timeout: 10000 });
+  await page.selectOption('#selectUsername', username);
+  await page.fill('#inputPassword', password);
+  await page.click('button[type="submit"]');
   await page.waitForURL('**/dashboard', { timeout: 10000 });
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(500);

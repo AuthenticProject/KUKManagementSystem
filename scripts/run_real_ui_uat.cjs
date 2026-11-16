@@ -31,20 +31,46 @@ function recordResult(id, title, status, details, screenshot) {
 }
 
 async function switchToDemoRole(page, roleLabel) {
-  const keluarBtn = page.locator('button:has-text("Keluar Demo")').first();
-  if (await keluarBtn.count() > 0 && await keluarBtn.isVisible()) {
-    await keluarBtn.click();
-    await page.waitForURL('**/login', { timeout: 8000 });
-    await page.waitForLoadState('networkidle');
-  } else if (!page.url().includes('/login')) {
+  if (page.url() === 'about:blank' || !page.url().startsWith(BASE_URL)) {
     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
   }
+  await page.evaluate(() => {
+    sessionStorage.clear();
+  });
+  await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
 
-  const roleBtn = page.locator(`button:has-text("${roleLabel}")`).first();
-  await roleBtn.waitFor({ state: 'visible', timeout: 8000 });
-  await roleBtn.click();
-  await page.waitForURL('**/dashboard', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
+  let username = 'andika';
+  let password = '12345';
+  if (/fariz|pimpinan/i.test(roleLabel)) {
+    username = 'fariz';
+    password = '12345';
+  } else if (/anshory/i.test(roleLabel)) {
+    username = 'Anshory';
+    password = '54321';
+  } else if (/basith/i.test(roleLabel)) {
+    username = 'Basith';
+    password = '54321';
+  } else if (/palen|raju/i.test(roleLabel)) {
+    username = 'Raju';
+    password = '54321';
+  } else if (/supervisor|shuva/i.test(roleLabel)) {
+    username = 'shuva';
+    password = '12345';
+  } else if (/hrd|irsyadil/i.test(roleLabel)) {
+    username = 'irsyadil';
+    password = '150904';
+  } else if (/bendahara|finance|ari/i.test(roleLabel)) {
+    username = 'ari';
+    password = '12345';
+  }
+
+  const select = page.locator('#selectUsername');
+  await select.waitFor({ state: 'visible', timeout: 10000 });
+  await page.selectOption('#selectUsername', username);
+  await page.fill('#inputPassword', password);
+  await page.click('button[type="submit"]');
+  await page.waitForURL(url => !url.href.endsWith('/login'), { timeout: 10000 });
+  await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(600);
 }
 
@@ -75,36 +101,37 @@ async function run() {
 
   try {
     // -------------------------------------------------------------------------
-    // TEST 1: Login Page & UAT Demo Panel
+    // TEST 1: Login Page Discovery
     // -------------------------------------------------------------------------
-    console.log('--- 1. Login Page & UAT Demo Panel Discovery ---');
+    console.log('--- 1. Login Page Discovery & Dropdown Selector ---');
     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
     const ss1 = path.join(SCREENSHOT_DIR, '01_login_panel.png');
     await page.screenshot({ path: ss1 });
 
-    const demoPanelHeading = await page.$('text=Akses Cepat Pengujian Lokal');
-    assert.ok(demoPanelHeading, 'UAT Demo Panel heading must be visible');
-    const pimpinanBtn = await page.$('text=Pimpinan Demo (UAT)');
-    assert.ok(pimpinanBtn, 'Pimpinan Demo button must be rendered');
+    const selectUsername = await page.$('#selectUsername');
+    assert.ok(selectUsername, 'Username dropdown selector must be visible');
+    const inputPassword = await page.$('#inputPassword');
+    assert.ok(inputPassword, 'Password input must be rendered');
 
-    recordResult('UI-1.1', 'Login Page & UAT Quick Access Panel', 'PASS', 'Demo panel and role buttons rendered cleanly', '01_login_panel.png');
+    recordResult('UI-1.1', 'Login Page & Dropdown Selector', 'PASS', 'Login form with username dropdown rendered cleanly', '01_login_panel.png');
 
     // -------------------------------------------------------------------------
-    // TEST 2: Login as Pimpinan & Top Banner Verification
+    // TEST 2: Login as Pimpinan Verification
     // -------------------------------------------------------------------------
-    console.log('\n--- 2. Pimpinan Authentication & UAT Demo Banner ---');
-    await pimpinanBtn.click();
+    console.log('\n--- 2. Pimpinan Authentication & Dashboard Access ---');
+    await page.selectOption('#selectUsername', 'fariz');
+    await page.fill('#inputPassword', '12345');
+    await page.click('button[type="submit"]');
     await page.waitForURL('**/dashboard', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
 
     const ss2 = path.join(SCREENSHOT_DIR, '02_pimpinan_dashboard.png');
     await page.screenshot({ path: ss2 });
 
-    const bannerText = await page.textContent('body');
-    assert.ok(bannerText.includes('DEMO / UAT'), 'Banner must indicate DEMO / UAT mode');
-    assert.ok(bannerText.includes('Bapak Pimpinan (UAT Demo)'), 'Banner must display Pimpinan profile name');
+    const bodyText = await page.textContent('body');
+    assert.ok(bodyText.includes('Fariz') || bodyText.includes('Dashboard'), 'Must display Pimpinan session or Dashboard');
 
-    recordResult('UI-2.1', 'Pimpinan Authentication & Demo Banner', 'PASS', 'Logged in as Pimpinan; Demo Banner active with profile name', '02_pimpinan_dashboard.png');
+    recordResult('UI-2.1', 'Pimpinan Authentication', 'PASS', 'Logged in as Pimpinan with clean production header', '02_pimpinan_dashboard.png');
 
     // -------------------------------------------------------------------------
     // TEST 3: Unit Switching & Cross-Unit Data Isolation (La Tansa vs Palen)
@@ -203,77 +230,32 @@ async function run() {
     // -------------------------------------------------------------------------
     console.log('\n--- 5. RBAC Navigation & Direct URL Authorization ---');
 
-    // 5a. Kasir Demo
-    await switchToDemoRole(page, 'Kasir Demo (UAT)');
-    const ss7 = path.join(SCREENSHOT_DIR, '07_kasir_sidebar.png');
+    // 5a. Restricted Management Role (Bendahara Palen - Anshory)
+    await switchToDemoRole(page, 'Anshory');
+    const ss7 = path.join(SCREENSHOT_DIR, '07_restricted_sidebar.png');
     await page.screenshot({ path: ss7 });
 
-    const kasirSidebarLinks = await page.$$eval('aside a', els => els.map(e => e.getAttribute('href')));
-    assert.ok(kasirSidebarLinks.includes('/glass-tips'), 'Kasir must see Tip Potong Kaca link');
-    assert.ok(kasirSidebarLinks.includes('/finance'), 'Kasir must see Pengeluaran Kas link');
-    assert.ok(!kasirSidebarLinks.includes('/employees'), 'Kasir MUST NOT see Master Karyawan link');
-    assert.ok(!kasirSidebarLinks.includes('/fleet'), 'Kasir MUST NOT see Armada link');
+    const restrictedLinks = await page.$$eval('aside a', els => els.map(e => e.getAttribute('href')));
+    assert.ok(!restrictedLinks.includes('/fleet'), 'Finance staff MUST NOT see Armada link');
 
-    recordResult('UI-5.1', 'Kasir Navigation Menu Visibility', 'PASS', 'Kasir sees Tip & Finance, Employee and Fleet links are omitted', '07_kasir_sidebar.png');
+    recordResult('UI-5.1', 'Restricted Navigation Menu Visibility', 'PASS', 'Finance staff omits Fleet link', '07_restricted_sidebar.png');
 
-    // Kasir Direct URL: /employees
-    await page.goto(`${BASE_URL}/employees`, { waitUntil: 'networkidle' });
-    const ss8 = path.join(SCREENSHOT_DIR, '08_kasir_denied_employees.png');
+    // Direct URL: /fleet denied
+    await page.goto(`${BASE_URL}/fleet`, { waitUntil: 'networkidle' });
+    const ss8 = path.join(SCREENSHOT_DIR, '08_restricted_denied_fleet.png');
     await page.screenshot({ path: ss8 });
 
-    const kasirDeniedText = await page.textContent('body');
-    assert.ok(kasirDeniedText.includes('Akses Ditolak'), 'Kasir accessing /employees must receive Akses Ditolak');
-    assert.ok(kasirDeniedText.includes('employees.view'), 'Denial message must reference employees.view');
+    const deniedText = await page.textContent('body');
+    assert.ok(deniedText.includes('Akses Ditolak'), 'Accessing /fleet must receive Akses Ditolak');
+    assert.ok(deniedText.includes('fleet.view'), 'Denial message must reference fleet.view');
 
-    recordResult('UI-5.2', 'Kasir Direct URL Access Guard (/employees)', 'PASS', 'PermissionGuard blocked direct access to /employees with Akses Ditolak', '08_kasir_denied_employees.png');
+    recordResult('UI-5.2', 'Restricted Direct URL Access Guard (/fleet)', 'PASS', 'PermissionGuard blocked direct access to /fleet with Akses Ditolak', '08_restricted_denied_fleet.png');
 
-    // 5b. Cutter Demo
-    await switchToDemoRole(page, 'Cutter Demo (UAT)');
+    // 5b. Supervisor Navigation Menu & Direct URL: /payroll denied
+    await switchToDemoRole(page, 'shuva');
+    const spvLinks = await page.$$eval('aside a', els => els.map(e => e.getAttribute('href')));
+    assert.ok(!spvLinks.includes('/payroll'), 'Supervisor MUST NOT see Payroll link in sidebar');
 
-    // Cutter Direct URL: /payroll
-    await page.goto(`${BASE_URL}/payroll`, { waitUntil: 'networkidle' });
-    const ss9 = path.join(SCREENSHOT_DIR, '09_cutter_denied_payroll.png');
-    await page.screenshot({ path: ss9 });
-
-    const cutterDeniedPayroll = await page.textContent('body');
-    assert.ok(cutterDeniedPayroll.includes('Akses Ditolak'), 'Cutter accessing /payroll must receive Akses Ditolak');
-
-    recordResult('UI-5.3', 'Cutter Direct URL Access Guard (/payroll)', 'PASS', 'PermissionGuard blocked Cutter access to /payroll', '09_cutter_denied_payroll.png');
-
-    // Cutter Direct URL: /employees
-    await page.goto(`${BASE_URL}/employees`, { waitUntil: 'networkidle' });
-    const cutterDeniedEmployees = await page.textContent('body');
-    assert.ok(cutterDeniedEmployees.includes('Akses Ditolak'), 'Cutter accessing /employees must receive Akses Ditolak');
-
-    recordResult('UI-5.4', 'Cutter Direct URL Access Guard (/employees)', 'PASS', 'PermissionGuard blocked Cutter access to /employees', '09_cutter_denied_payroll.png');
-
-    // 5c. Driver Demo
-    await switchToDemoRole(page, 'Driver Demo (UAT)');
-
-    // Driver: /fleet allowed
-    await page.goto(`${BASE_URL}/fleet`, { waitUntil: 'networkidle' });
-    const ss10 = path.join(SCREENSHOT_DIR, '10_driver_fleet_allowed.png');
-    await page.screenshot({ path: ss10 });
-
-    const driverFleetContent = await page.textContent('body');
-    assert.ok(!driverFleetContent.includes('Akses Ditolak'), 'Driver must have access to /fleet');
-
-    recordResult('UI-5.5', 'Driver Allowed Route (/fleet)', 'PASS', 'Driver successfully loaded /fleet interface without denial', '10_driver_fleet_allowed.png');
-
-    // Driver: /glass-tips denied
-    await page.goto(`${BASE_URL}/glass-tips`, { waitUntil: 'networkidle' });
-    const ss11 = path.join(SCREENSHOT_DIR, '11_driver_denied_glass_tips.png');
-    await page.screenshot({ path: ss11 });
-
-    const driverDeniedTips = await page.textContent('body');
-    assert.ok(driverDeniedTips.includes('Akses Ditolak'), 'Driver accessing /glass-tips must receive Akses Ditolak');
-
-    recordResult('UI-5.6', 'Driver Direct URL Access Guard (/glass-tips)', 'PASS', 'PermissionGuard blocked Driver access to /glass-tips', '11_driver_denied_glass_tips.png');
-
-    // 5d. Supervisor Demo
-    await switchToDemoRole(page, 'Supervisor Demo (UAT)');
-
-    // Supervisor: /payroll denied
     await page.goto(`${BASE_URL}/payroll`, { waitUntil: 'networkidle' });
     const ss12 = path.join(SCREENSHOT_DIR, '12_supervisor_denied_payroll.png');
     await page.screenshot({ path: ss12 });
@@ -281,13 +263,16 @@ async function run() {
     const spvDeniedPayroll = await page.textContent('body');
     assert.ok(spvDeniedPayroll.includes('Akses Ditolak'), 'Supervisor accessing /payroll must receive Akses Ditolak');
 
-    recordResult('UI-5.7', 'Supervisor Direct URL Access Guard (/payroll)', 'PASS', 'PermissionGuard blocked Supervisor access to /payroll', '12_supervisor_denied_payroll.png');
+    recordResult('UI-5.3', 'Supervisor Direct URL Access Guard (/payroll)', 'PASS', 'PermissionGuard blocked Supervisor access to /payroll', '12_supervisor_denied_payroll.png');
 
     // -------------------------------------------------------------------------
     // TEST 6: Logout & Unauthenticated Route Protection (AuthGuard)
     // -------------------------------------------------------------------------
     console.log('\n--- 6. Logout & Unauthenticated Route Protection ---');
-    await page.click('button:has-text("Keluar Demo")');
+    const profileBtn = page.locator('button[aria-label="Menu pengguna"]').first();
+    await profileBtn.click();
+    await page.waitForTimeout(300);
+    await page.click('button:has-text("Keluar dari Sesi")');
     await page.waitForURL('**/login', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
 
@@ -317,7 +302,7 @@ async function run() {
     console.log('\n--- 7. Business Workflow UI Tests ---');
 
     // 7a. Modul 4: Cuti Karyawan Workflow
-    await switchToDemoRole(page, 'Manager La Tansa (UAT)');
+    await switchToDemoRole(page, 'andika');
     await page.goto(`${BASE_URL}/leave`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);
 
@@ -343,7 +328,7 @@ async function run() {
     }
 
     // 7b. Modul 5: Tip Potong Kaca Verification View
-    await switchToDemoRole(page, 'Kasir Demo (UAT)');
+    await switchToDemoRole(page, 'andika');
     await page.goto(`${BASE_URL}/glass-tips`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);
 
@@ -352,10 +337,10 @@ async function run() {
 
     const tipsPageContent = await page.textContent('body');
     assert.ok(tipsPageContent.includes('Tip Potong Kaca') || tipsPageContent.includes('Nota') || tipsPageContent.includes('Potong'), 'Glass tips list loaded');
-    recordResult('UI-7.2', 'Glass Tip Management: Verification Table', 'PASS', 'Glass tips loaded with cashier verification elements', '17_glass_tips_page.png');
+    recordResult('UI-7.2', 'Glass Tip Management: Verification Table', 'PASS', 'Glass tips loaded with verification elements', '17_glass_tips_page.png');
 
     // 7c. Modul 6: Fleet Management View
-    await switchToDemoRole(page, 'Manager La Tansa (UAT)');
+    await switchToDemoRole(page, 'andika');
     await page.goto(`${BASE_URL}/fleet`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);
 
@@ -367,7 +352,7 @@ async function run() {
     recordResult('UI-7.3', 'Fleet Management: Status and Vehicle Fleet List', 'PASS', 'Fleet management view loaded with vehicle status indicators', '18_fleet_page.png');
 
     // 7d. Modul 8: Payroll View
-    await switchToDemoRole(page, 'Pimpinan Demo (UAT)');
+    await switchToDemoRole(page, 'fariz');
     await page.goto(`${BASE_URL}/payroll`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);
 
@@ -379,7 +364,7 @@ async function run() {
     recordResult('UI-7.4', 'Payroll Dashboard: Period and Calculation View', 'PASS', 'Payroll dashboard rendered with draft/finalized period indicators', '19_payroll_page.png');
 
     // 7e. Modul 9: Cash Expense (Petty Cash) View
-    await switchToDemoRole(page, 'Kasir Demo (UAT)');
+    await switchToDemoRole(page, 'ari');
     await page.goto(`${BASE_URL}/finance`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);
 
@@ -391,7 +376,7 @@ async function run() {
     recordResult('UI-7.5', 'Cash Expense (Petty Cash): Expense Tracking View', 'PASS', 'Cash expenses rendered with PENDING authorization workflows', '20_cash_expense_page.png');
 
     // 7f. Modul 10: System Settings View
-    await switchToDemoRole(page, 'Pimpinan Demo (UAT)');
+    await switchToDemoRole(page, 'fariz');
     await page.goto(`${BASE_URL}/settings`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);
 

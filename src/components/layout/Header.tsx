@@ -9,7 +9,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
-  const { profile, isAdminPusat, signOut, isDemoMode } = useAuth();
+  const { profile, isAdminPusat, signOut } = useAuth();
   const { activeUnit, activeUnitId, availableUnits, isPusatView, setActiveUnitId } = useUnit();
 
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
@@ -37,38 +37,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
 
   return (
     <>
-      {/* Demo / UAT Safeguard Banner */}
-      {isDemoMode && (
-        <div className="bg-[#FFCC00] text-[#540000] px-4 py-1.5 text-xs font-semibold flex flex-wrap items-center justify-between border-b border-[#996414]/30 shadow-xs z-40 sticky top-0">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-[#540000] text-[#FFCC00] text-[10px] uppercase tracking-wider font-extrabold shadow-2xs">
-              LOCAL DEMO / UAT
-            </span>
-            <span>
-              Simulasi Offline: <strong className="font-bold">{profile?.full_name}</strong>
-              {activeUnit && <span className="ml-1 text-[#540000]/80">({activeUnit.name})</span>}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-[#540000]/80 hidden sm:inline">
-              (Terisolasi Penuh · 0 Panggilan Remote Production)
-            </span>
-            <button
-              onClick={() => signOut()}
-              className="px-2.5 py-0.5 rounded-md bg-[#540000]/10 hover:bg-[#540000]/20 text-xs font-bold text-[#540000] transition-colors"
-            >
-              Keluar Demo
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Main Top Header */}
-      <header
-        className={`h-16 bg-white border-b border-[#E5E5E5] px-4 sm:px-6 flex items-center justify-between z-30 shadow-xs ${
-          isDemoMode ? 'sticky top-7' : 'sticky top-0'
-        }`}
-      >
+      <header className="h-16 bg-white border-b border-[#E5E5E5] px-4 sm:px-6 flex items-center justify-between z-30 shadow-xs sticky top-0">
         {/* Left: Mobile Toggle & Brand Logo */}
         <div className="flex items-center gap-3 sm:gap-4">
           {onToggleMobileMenu && (

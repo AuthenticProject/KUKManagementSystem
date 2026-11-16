@@ -2166,7 +2166,7 @@ export const systemService = {
 
   async saveUserRole(userId: string, role: string, units: string[]): Promise<{ success: boolean; message: string }> {
     if (isPreviewModeActive() || userId.startsWith('user-') || userId.startsWith('demo-')) {
-      return { success: true, message: '[SIMULASI PREVIEW] Hak akses pengguna lokal diperbarui dalam memori (TIDAK tersimpan ke database).' };
+      return { success: true, message: 'Hak akses pengguna lokal diperbarui dalam memori (TIDAK tersimpan ke database).' };
     }
     try {
       // Remediation 2: Gunakan RPC assign_user_roles_atomic menggantikan tabel non-eksisten user_profiles

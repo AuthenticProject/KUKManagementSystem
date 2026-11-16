@@ -33,13 +33,34 @@ async function switchToDemoRole(page, roleLabel) {
     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
   }
   await page.evaluate(() => {
-    localStorage.removeItem('KUK_UAT_DEMO_IDENTITY');
-    localStorage.removeItem('KUK_UAT_DEMO_ACTIVE_UNIT');
+    sessionStorage.clear();
   });
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
-  const roleBtn = page.locator(`button:has-text("${roleLabel}")`).first();
-  await roleBtn.waitFor({ state: 'visible', timeout: 12000 });
-  await roleBtn.click();
+
+  let username = 'andika';
+  let password = '12345';
+  if (/pimpinan/i.test(roleLabel)) {
+    username = 'fariz';
+    password = '12345';
+  } else if (/palen/i.test(roleLabel)) {
+    username = 'Raju';
+    password = '54321';
+  } else if (/supervisor/i.test(roleLabel)) {
+    username = 'shuva';
+    password = '12345';
+  } else if (/hrd/i.test(roleLabel)) {
+    username = 'irsyadil';
+    password = '150904';
+  } else if (/bendahara|finance/i.test(roleLabel)) {
+    username = 'ari';
+    password = '12345';
+  }
+
+  const select = page.locator('#selectUsername');
+  await select.waitFor({ state: 'visible', timeout: 12000 });
+  await page.selectOption('#selectUsername', username);
+  await page.fill('#inputPassword', password);
+  await page.click('button[type="submit"]');
   await page.waitForURL('**/dashboard', { timeout: 12000 });
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(400);
@@ -192,6 +213,76 @@ async function runMaturitySuite() {
     // ------------------------------------------------------------------------
     console.log('\n--- 3. OPERATIONAL PRINT LAYOUTS & ENTERPRISE LETTERHEADS ---');
 
+    async function seedPrintFixtures(page) {
+      await page.evaluate(async () => {
+        try {
+          const { previewStore } = await import('/src/services/dataService.ts');
+          const unitId = '00000000-0000-0000-0000-000000000001';
+          if (previewStore.getCashExpenses(unitId).length === 0) {
+            previewStore.recordExpense(unitId, {
+              category: 'OFFICE_SUPPLIES',
+              amount: 175000,
+              description: 'Pembelian kertas thermal kasir & nota',
+              recipient_name: 'Toko ATK Barokah',
+              expense_date: '2026-11-16',
+            });
+          }
+          if (previewStore.getBorrowingRequests(unitId).length === 0) {
+            previewStore.bookVehicle(unitId, {
+              vehicle_id: 'veh-001',
+              borrower_name: 'Budi Santoso',
+              borrower_institution: 'Internal Gudang',
+              borrower_phone: '081234567890',
+              responsible_person: 'Kepala Gudang',
+              start_time: '2026-11-17T09:00:00Z',
+              estimated_return_time: '2026-11-17T15:00:00Z',
+              destination: 'Proyek Cileungsi',
+              purpose: 'Pengiriman pesanan kaca tempered',
+            });
+          }
+          if (previewStore.getLeaveRequests(unitId).length === 0) {
+            previewStore.submitLeaveRequest(unitId, {
+              employee_id: 'emp-002',
+              reason: 'Keperluan keluarga penting',
+              target_month: '2026-12',
+              dates: ['2026-12-06'],
+            });
+          }
+          if (previewStore.getWarningLetters(unitId).length === 0) {
+            previewStore.issueWarningLetter(unitId, {
+              employee_id: 'emp-001',
+              letter_number: 'SP/TB-LATANSA/202611/0001',
+              level: 'ORAL_WARNING',
+              issued_date: '2026-11-16',
+              valid_until: '2027-05-16',
+              reason: 'Evaluasi disiplin kehadiran berkala',
+              issued_by: 'Kepala Toko La Tansa',
+            });
+          }
+          if (previewStore.getGlassTips(unitId).length === 0) {
+            previewStore.submitGlassTip(unitId, {
+              employee_id: 'emp-001',
+              glass_type_id: 'gt-01',
+              length_cm: 120,
+              height_cm: 150,
+              quantity: 2,
+              notes: 'Potong kaca polos 5mm',
+            });
+          }
+          if (previewStore.getPayrollPeriods(unitId).length === 0) {
+            previewStore.createPayrollPeriod(unitId, {
+              period_name: 'Gaji Periode November 2026',
+              start_date: '2026-11-01',
+              end_date: '2026-11-30',
+              payout_date: '2026-12-01',
+            });
+          }
+        } catch (e) {
+          console.warn('Seed error', e);
+        }
+      });
+    }
+
     // 3.1 Cetak Daftar Induk Karyawan
     {
       const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
@@ -228,6 +319,7 @@ async function runMaturitySuite() {
       const page = await context.newPage();
       try {
         await switchToDemoRole(page, 'Manager La Tansa (UAT)');
+        await seedPrintFixtures(page);
         await page.goto(`${BASE_URL}/finance`);
         await page.waitForSelector('table', { timeout: 8000 });
 
@@ -260,6 +352,7 @@ async function runMaturitySuite() {
       const page = await context.newPage();
       try {
         await switchToDemoRole(page, 'Manager La Tansa (UAT)');
+        await seedPrintFixtures(page);
         await page.goto(`${BASE_URL}/fleet`);
         
         // Pindah ke tab pengajuan peminjaman
@@ -294,6 +387,7 @@ async function runMaturitySuite() {
       const page = await context.newPage();
       try {
         await switchToDemoRole(page, 'Manager La Tansa (UAT)');
+        await seedPrintFixtures(page);
         await page.goto(`${BASE_URL}/leave`);
         await page.waitForTimeout(500);
 
@@ -325,6 +419,7 @@ async function runMaturitySuite() {
       const page = await context.newPage();
       try {
         await switchToDemoRole(page, 'Manager La Tansa (UAT)');
+        await seedPrintFixtures(page);
         await page.goto(`${BASE_URL}/violations`);
         
         // Pindah ke tab Surat Peringatan
@@ -359,6 +454,7 @@ async function runMaturitySuite() {
       const page = await context.newPage();
       try {
         await switchToDemoRole(page, 'Manager La Tansa (UAT)');
+        await seedPrintFixtures(page);
         await page.goto(`${BASE_URL}/glass-tips`);
         await page.waitForSelector('table', { timeout: 8000 });
 
@@ -390,6 +486,7 @@ async function runMaturitySuite() {
       const page = await context.newPage();
       try {
         await switchToDemoRole(page, 'Manager La Tansa (UAT)');
+        await seedPrintFixtures(page);
         await page.goto(`${BASE_URL}/payroll`);
         await page.waitForSelector('table', { timeout: 8000 });
 

@@ -2,22 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Lock, Mail, AlertCircle, ArrowLeft, Eye, EyeOff, ShieldCheck, UserCheck, KeyRound } from 'lucide-react';
-import { isUatDemoAvailable, DEMO_IDENTITIES, DemoIdentityKey } from '@/services/demoAuth';
+import { Lock, AlertCircle, ArrowLeft, Eye, EyeOff, UserCheck } from 'lucide-react';
 import { userAccountStore, StoredStaffUser } from '@/services/userAccountStore';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [staffUsers, setStaffUsers] = useState<StoredStaffUser[]>([]);
-  const [selectedStaffUsername, setSelectedStaffUsername] = useState<string>('');
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loginAsDemo, loginAsStaff } = useAuth();
+  const { user, loginAsStaff } = useAuth();
 
   const from = (location.state as any)?.from?.pathname || '/dashboard';
 
@@ -32,22 +30,25 @@ export const LoginPage: React.FC = () => {
     return <Navigate to={from} replace />;
   }
 
-  const handleStaffSelect = (username: string) => {
-    setSelectedStaffUsername(username);
-    setErrorMsg(null);
-    const matched = staffUsers.find((u) => u.username.toLowerCase() === username.toLowerCase());
-    if (matched) {
-      setEmail(matched.username);
-    }
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
 
-    const inputUser = email.trim();
+    const inputUser = username.trim();
     const inputPass = password.trim();
+
+    if (!inputUser) {
+      setErrorMsg('Silakan pilih username akun terlebih dahulu.');
+      setLoading(false);
+      return;
+    }
+
+    if (!inputPass) {
+      setErrorMsg('Kata sandi wajib diisi.');
+      setLoading(false);
+      return;
+    }
 
     // 1. Prioritas: Cek akun staf resmi (KUK Bangunan & KUK Palen)
     const staffAuth = userAccountStore.authenticate(inputUser, inputPass);
@@ -58,22 +59,7 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    // 2. Jika input user cocok dengan demo identity key atau email demo UAT
-    if (isUatDemoAvailable()) {
-      const matchedKey = (Object.keys(DEMO_IDENTITIES) as DemoIdentityKey[]).find(
-        (key) =>
-          DEMO_IDENTITIES[key].profile.email.toLowerCase() === inputUser.toLowerCase() ||
-          key.toLowerCase() === inputUser.toLowerCase()
-      );
-      if (matchedKey) {
-        loginAsDemo(matchedKey);
-        navigate(from, { replace: true });
-        setLoading(false);
-        return;
-      }
-    }
-
-    // 3. Fallback: Supabase remote auth jika ada konfigurasi
+    // 2. Fallback: Supabase remote auth jika ada konfigurasi
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: inputUser,
@@ -90,11 +76,10 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       console.warn('[Login Error]', err);
-      // Tampilkan pesan error ramah pengguna
       if (staffAuth && !staffAuth.success) {
         setErrorMsg(staffAuth.message);
       } else {
-        setErrorMsg(err.message || 'Login gagal. Periksa kembali nama akun dan kata sandi Anda.');
+        setErrorMsg(err.message || 'Login gagal. Periksa kembali akun dan kata sandi Anda.');
       }
     } finally {
       setLoading(false);
@@ -155,27 +140,31 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <form className="space-y-4" onSubmit={handleLogin}>
-            {/* Quick Account Dropdown Selector (Matching KUK Reference) */}
+          <form className="space-y-5" onSubmit={handleLogin}>
+            {/* Username Selector Dropdown */}
             <div>
               <label
-                htmlFor="selectStaffUser"
+                htmlFor="selectUsername"
                 className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5"
               >
-                Pilih Akun Staf Manajemen
+                Username Akun
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
                   <UserCheck className="w-4 h-4 text-[#540000]" />
                 </div>
                 <select
-                  id="selectStaffUser"
-                  value={selectedStaffUsername}
-                  onChange={(e) => handleStaffSelect(e.target.value)}
-                  className="block w-full pl-10 pr-3.5 py-2.5 border border-[#E5E5E5] bg-gray-50/50 hover:bg-white rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414] transition-all cursor-pointer"
+                  id="selectUsername"
+                  required
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setErrorMsg(null);
+                  }}
+                  className="block w-full pl-10 pr-8 py-2.5 border border-[#E5E5E5] bg-gray-50/50 hover:bg-white rounded-xl text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414] transition-all cursor-pointer"
                 >
                   <option value="" disabled>
-                    -- Ketuk untuk Memilih Akun Staf --
+                    -- Pilih Username / Akun Staf --
                   </option>
                   {bangunanUsers.length > 0 && (
                     <optgroup label="🏢 TB KUK LA TANSA (KUK BANGUNAN)">
@@ -199,39 +188,19 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Username / Email Manual Input */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                Username / Email Akun
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setSelectedStaffUsername('');
-                  }}
-                  placeholder="Contoh: fariz, andika, irsyadil, atau Raju"
-                  className="block w-full pl-10 pr-3.5 py-2.5 border border-[#E5E5E5] rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414] transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Password Input */}
+            {/* Password Input (User Types Password) */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                <label
+                  htmlFor="inputPassword"
+                  className="block text-xs font-bold text-gray-700 uppercase tracking-wider"
+                >
                   Kata Sandi (Password)
                 </label>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                  <Lock className="w-4 h-4" />
+                  <Lock className="w-4 h-4 text-[#540000]" />
                 </div>
                 <input
                   id="inputPassword"
@@ -239,7 +208,7 @@ export const LoginPage: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Masukkan kata sandi"
+                  placeholder="Ketik kata sandi Anda"
                   autoComplete="current-password"
                   className="block w-full pl-10 pr-10 py-2.5 border border-[#E5E5E5] rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#996414] transition-all"
                 />
@@ -251,14 +220,6 @@ export const LoginPage: React.FC = () => {
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
-              </div>
-
-              {/* Password Hint Reference */}
-              <div className="mt-2 p-2 bg-[#FFF9D6] border border-[#FFE066] rounded-xl flex items-center gap-1.5 text-[11px] text-[#996414] font-medium">
-                <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#996414]" />
-                <span>
-                  <strong>PW Bawaan:</strong> <code>12345</code> (La Tansa) · <code>54321</code> (Palen) · <code>150904</code> (HRD)
-                </span>
               </div>
             </div>
 
@@ -284,61 +245,6 @@ export const LoginPage: React.FC = () => {
             </span>
           </div>
         </div>
-
-        {/* Panel Akses Cepat Demo UAT (Hanya Aktif di Mode Dev Lokal dengan VITE_ENABLE_UAT_DEMO=true) */}
-        {isUatDemoAvailable() && (
-          <div className="mt-6 bg-white border border-[#FFCC00] rounded-3xl p-5 shadow-brand relative overflow-hidden animate-in fade-in">
-            <div className="absolute top-0 inset-x-0 h-1 bg-[#FFCC00]" />
-
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-[#540000] text-[#FFCC00]">
-                  LOCAL DEMO / UAT
-                </span>
-                <span className="text-xs font-bold text-gray-900">
-                  Akses Cepat Pengujian Lokal
-                </span>
-              </div>
-              <span className="text-[10px] text-[#996414] bg-[#FFF9D6] px-2 py-0.5 rounded-full font-bold border border-[#FFE066] flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" />
-                Offline Mode
-              </span>
-            </div>
-
-            <p className="text-[11px] text-gray-600 mb-4 leading-relaxed">
-              Klik salah satu peran di bawah ini untuk menguji hak akses dan alur kerja bisnis secara offline tanpa koneksi ke database production.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(Object.keys(DEMO_IDENTITIES) as DemoIdentityKey[]).map((key) => {
-                const item = DEMO_IDENTITIES[key];
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      loginAsDemo(key);
-                      navigate('/dashboard', { replace: true });
-                    }}
-                    className="p-3 text-left rounded-2xl bg-[#F8F9FA] border border-[#E5E5E5] hover:border-[#540000] hover:bg-white hover:shadow-xs transition-all flex flex-col justify-between group active:scale-[0.98]"
-                  >
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-xs font-bold text-gray-900 group-hover:text-[#540000] transition-colors">
-                        {item.label}
-                      </span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">
-                        {item.role}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-gray-500 leading-tight">
-                      {item.badge}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

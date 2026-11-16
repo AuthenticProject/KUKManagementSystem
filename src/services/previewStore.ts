@@ -49,6 +49,9 @@ export class PreviewStore {
   private initialized: boolean = false;
 
   private getStorage(): Storage | null {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage;
+    }
     if (typeof window !== 'undefined' && window.sessionStorage) {
       return window.sessionStorage;
     }
@@ -59,7 +62,7 @@ export class PreviewStore {
     const storage = this.getStorage();
     if (!storage) return;
     try {
-      storage.setItem('KUK_PREVIEW_STORE_V1', JSON.stringify({
+      storage.setItem('KUK_STORE_LIVE_V3_1', JSON.stringify({
         employees: this.employees,
         vehicles: this.vehicles,
         borrowingRequests: this.borrowingRequests,
@@ -87,7 +90,7 @@ export class PreviewStore {
     const storage = this.getStorage();
     if (!storage) return false;
     try {
-      const raw = storage.getItem('KUK_PREVIEW_STORE_V1');
+      const raw = storage.getItem('KUK_STORE_LIVE_V3_1');
       if (raw) {
         const parsed = JSON.parse(raw);
         this.employees = parsed.employees || {};
@@ -155,7 +158,10 @@ export class PreviewStore {
     this.workSchedules = {};
     this.initialized = false;
     const storage = this.getStorage();
-    if (storage) storage.removeItem('KUK_PREVIEW_STORE_V1');
+    if (storage) {
+      storage.removeItem('KUK_STORE_LIVE_V3_1');
+      storage.removeItem('KUK_PREVIEW_STORE_V1');
+    }
   }
 
   // --- 1. EMPLOYEES & SENSITIVE DATA ---
@@ -367,7 +373,7 @@ export class PreviewStore {
     }
     this.employees[unitId] = currentList;
     this.saveToStorage();
-    return { success: true, message: '[SIMULASI PREVIEW] Data karyawan berhasil disimpan.' };
+    return { success: true, message: 'Data karyawan berhasil disimpan.' };
   }
 
   public updateEmployeeStatus(unitId: string, employeeId: string, status: EmployeeStatus): { success: boolean; message: string } {
@@ -382,7 +388,7 @@ export class PreviewStore {
       emp.status = status;
       emp.updated_at = new Date().toISOString();
       this.saveToStorage();
-      return { success: true, message: `[SIMULASI PREVIEW] Status karyawan berhasil diperbarui menjadi ${status} (Anti-hard-delete terjamin).` };
+      return { success: true, message: `Status karyawan berhasil diperbarui menjadi ${status} (Anti-hard-delete terjamin).` };
     }
     return { success: false, message: 'Karyawan tidak ditemukan.' };
   }
@@ -423,7 +429,7 @@ export class PreviewStore {
       updated_at: new Date().toISOString(),
     } as EmployeeSensitiveData;
     this.saveToStorage();
-    return { success: true, message: '[SIMULASI PREVIEW] Data sensitif karyawan berhasil disimpan.' };
+    return { success: true, message: 'Data sensitif karyawan berhasil disimpan.' };
   }
 
   public resetKioskPin(unitId: string, _employeeId: string, newPin: string): { success: boolean; message: string } {
@@ -431,7 +437,7 @@ export class PreviewStore {
     if (!newPin || newPin.length !== 6 || !/^[0-9]{6}$/.test(newPin)) {
       return { success: false, message: 'Validasi Gagal: PIN Kiosk wajib berupa 6 digit angka numerik.' };
     }
-    return { success: true, message: '[SIMULASI PREVIEW] PIN Kiosk karyawan berhasil direset.' };
+    return { success: true, message: 'PIN Kiosk karyawan berhasil direset.' };
   }
 
   public getEmployeeJobHistory(employeeId: string): EmployeeJobHistory[] {
@@ -527,7 +533,7 @@ export class PreviewStore {
 
     return {
       success: true,
-      message: `[SIMULASI PREVIEW] Perubahan jabatan (${payload.transition_type}) berhasil dicatat.`,
+      message: `Perubahan jabatan (${payload.transition_type}) berhasil dicatat.`,
       history: newHistory,
     };
   }
@@ -557,7 +563,7 @@ export class PreviewStore {
     list.unshift(newB);
     this.briefingSessions[unitId] = list;
     this.saveToStorage();
-    return { success: true, message: '[SIMULASI PREVIEW] Sesi briefing berhasil dicatat.' };
+    return { success: true, message: 'Sesi briefing berhasil dicatat.' };
   }
 
   public recordDailyBriefingAttendance(unitId: string, payload: {
@@ -626,7 +632,7 @@ export class PreviewStore {
 
     return {
       success: true,
-      message: `[SIMULASI PREVIEW] Rekap presensi briefing tanggal ${payload.session_date} untuk ${updatedRecords.length} karyawan berhasil disimpan!`,
+      message: `Rekap presensi briefing tanggal ${payload.session_date} untuk ${updatedRecords.length} karyawan berhasil disimpan!`,
       session_id: sessionId,
     };
   }
@@ -668,7 +674,7 @@ export class PreviewStore {
     if (!updates.notes || !updates.notes.trim()) {
       return { success: false, message: 'Validasi Gagal: Alasan koreksi presensi wajib diisi untuk jejak audit.' };
     }
-    return { success: true, message: '[SIMULASI PREVIEW] Koreksi presensi manual berhasil disimpan dengan jejak audit supervisor.' };
+    return { success: true, message: 'Koreksi presensi manual berhasil disimpan dengan jejak audit supervisor.' };
   }
 
   public importFingerprintBatch(
@@ -722,7 +728,7 @@ export class PreviewStore {
     return {
       success: true,
       count: importedCount,
-      message: `[SIMULASI PREVIEW] Berhasil mengimpor ${importedCount} catatan log presensi fingerprint.`,
+      message: `Berhasil mengimpor ${importedCount} catatan log presensi fingerprint.`,
     };
   }
 
@@ -833,8 +839,8 @@ export class PreviewStore {
     return {
       success: true,
       message: isDepartmentConflict
-        ? `[SIMULASI PREVIEW] Permohonan cuti diajukan (Status: PENDING - Terdapat bentrok jadwal cuti departemen dengan ${conflictColleague}).`
-        : '[SIMULASI PREVIEW] Pengajuan cuti disetujui otomatis (Status: APPROVED).',
+        ? `Permohonan cuti diajukan (Status: PENDING - Terdapat bentrok jadwal cuti departemen dengan ${conflictColleague}).`
+        : 'Pengajuan cuti disetujui otomatis (Status: APPROVED).',
       request_id: newReqId,
       auto_approved: !isDepartmentConflict,
       is_conflict: isDepartmentConflict,
@@ -883,7 +889,7 @@ export class PreviewStore {
       req.status = status;
       req.updated_at = new Date().toISOString();
       this.saveToStorage();
-      return { success: true, message: `[SIMULASI PREVIEW] Permohonan cuti berhasil diubah statusnya menjadi ${status}.` };
+      return { success: true, message: `Permohonan cuti berhasil diubah statusnya menjadi ${status}.` };
     }
     return { success: false, message: 'Permohonan cuti tidak ditemukan.' };
   }
@@ -912,7 +918,7 @@ export class PreviewStore {
     list.push(newV);
     this.vehicles[unitId] = list;
     this.saveToStorage();
-    return { success: true, message: '[SIMULASI PREVIEW] Kendaraan armada berhasil didaftarkan.' };
+    return { success: true, message: 'Kendaraan armada berhasil didaftarkan.' };
   }
 
   public updateVehicleStatus(unitId: string, vehicleId: string, status: VehicleStatus): { success: boolean; message: string } {
@@ -922,7 +928,7 @@ export class PreviewStore {
     if (v) {
       v.status = status;
       this.saveToStorage();
-      return { success: true, message: `[SIMULASI PREVIEW] Status kendaraan diperbarui menjadi ${status}.` };
+      return { success: true, message: `Status kendaraan diperbarui menjadi ${status}.` };
     }
     return { success: false, message: 'Kendaraan tidak ditemukan.' };
   }
@@ -976,7 +982,7 @@ export class PreviewStore {
 
     return {
       success: true,
-      message: '[SIMULASI PREVIEW] Pengajuan peminjaman armada berhasil dicatat (Status: PENDING).',
+      message: 'Pengajuan peminjaman armada berhasil dicatat (Status: PENDING).',
       booking_code: bCode,
     };
   }
@@ -997,7 +1003,7 @@ export class PreviewStore {
         this.updateVehicleStatus(unitId, req.vehicle_id, 'BORROWED');
       }
       this.saveToStorage();
-      return { success: true, message: '[SIMULASI PREVIEW] Peminjaman armada disetujui (Status: APPROVED).' };
+      return { success: true, message: 'Peminjaman armada disetujui (Status: APPROVED).' };
     }
     return { success: false, message: 'Pengajuan peminjaman tidak ditemukan.' };
   }
@@ -1013,7 +1019,7 @@ export class PreviewStore {
     if (req) {
       req.status = 'REJECTED';
       this.saveToStorage();
-      return { success: true, message: `[SIMULASI PREVIEW] Peminjaman armada ditolak${reason ? ': ' + reason : ''}.` };
+      return { success: true, message: `Peminjaman armada ditolak${reason ? ': ' + reason : ''}.` };
     }
     return { success: false, message: 'Pengajuan peminjaman tidak ditemukan.' };
   }
@@ -1036,8 +1042,8 @@ export class PreviewStore {
     return {
       success: true,
       message: isUnfit
-        ? `[SIMULASI PREVIEW] Pengembalian armada dicatat. Berdasarkan penilaian petugas (${payload.inspector_name || 'Petugas'}), armada dinyatakan TIDAK LAYAK JALAN dan dialihkan ke MAINTENANCE.`
-        : '[SIMULASI PREVIEW] Pengembalian armada dicatat. Berdasarkan penilaian petugas, armada dinyatakan LAYAK OPERASIONAL dan berstatus AVAILABLE.',
+        ? `Pengembalian armada dicatat. Berdasarkan penilaian petugas (${payload.inspector_name || 'Petugas'}), armada dinyatakan TIDAK LAYAK JALAN dan dialihkan ke MAINTENANCE.`
+        : 'Pengembalian armada dicatat. Berdasarkan penilaian petugas, armada dinyatakan LAYAK OPERASIONAL dan berstatus AVAILABLE.',
     };
   }
 
@@ -1110,7 +1116,7 @@ export class PreviewStore {
 
     return {
       success: true,
-      message: '[SIMULASI PREVIEW] Pengajuan nota tip potong kaca berhasil disimpan (Status: PENDING).',
+      message: 'Pengajuan nota tip potong kaca berhasil disimpan (Status: PENDING).',
       reference_code: refCode,
       calculated_sqm: sqm,
       estimated_tip: tipAmount,
@@ -1132,7 +1138,7 @@ export class PreviewStore {
       tip.status = action === 'VERIFY' ? 'VERIFIED' : 'REJECTED';
       tip.verified_amount = action === 'VERIFY' ? verifiedAmount : 0;
       this.saveToStorage();
-      return { success: true, message: `[SIMULASI PREVIEW] Nota tip berhasil ${action === 'VERIFY' ? 'diverifikasi' : 'ditolak'}.` };
+      return { success: true, message: `Nota tip berhasil ${action === 'VERIFY' ? 'diverifikasi' : 'ditolak'}.` };
     }
     return { success: false, message: 'Nota tip tidak ditemukan.' };
   }
@@ -1168,7 +1174,7 @@ export class PreviewStore {
     list.unshift(newV);
     this.violations[unitId] = list;
     this.saveToStorage();
-    return { success: true, message: '[SIMULASI PREVIEW] Kejadian pelanggaran disiplin berhasil dicatat.' };
+    return { success: true, message: 'Kejadian pelanggaran disiplin berhasil dicatat.' };
   }
 
   public getWarningLetters(unitId: string): WarningLetter[] {
@@ -1206,7 +1212,7 @@ export class PreviewStore {
     list.unshift(newSP);
     this.warningLetters[unitId] = list;
     this.saveToStorage();
-    return { success: true, message: `[SIMULASI PREVIEW] Surat Peringatan (SP) berhasil diterbitkan (Status: BUSINESS DECISION REQUIRED - DRAFT SIMULASI ADMINISTRATIF - Masa berlaku referensi 6 bulan s.d. ${validUntil}, Tanpa Potongan Gaji Otomatis).` };
+    return { success: true, message: `Surat Peringatan (SP) berhasil diterbitkan (Status: BUSINESS DECISION REQUIRED - DRAFT SIMULASI ADMINISTRATIF - Masa berlaku referensi 6 bulan s.d. ${validUntil}, Tanpa Potongan Gaji Otomatis).` };
   }
 
   // --- 7. PAYROLL ---
@@ -1233,7 +1239,7 @@ export class PreviewStore {
     list.unshift(newPeriod);
     this.payrollPeriods[unitId] = list;
     this.saveToStorage();
-    return { success: true, message: '[SIMULASI PREVIEW] Periode penggajian baru berhasil dibuat (Status: DRAFT).', period_id: newId };
+    return { success: true, message: 'Periode penggajian baru berhasil dibuat (Status: DRAFT).', period_id: newId };
   }
 
   public finalizePayrollAtomic(unitId: string, periodId: string, finalizedBy: string): { success: boolean; message: string } {
@@ -1252,7 +1258,7 @@ export class PreviewStore {
       p.finalized_at = new Date().toISOString();
       p.finalized_by = finalizedBy;
       this.saveToStorage();
-      return { success: true, message: '[SIMULASI PREVIEW] Periode payroll berhasil dikunci dan difinalisasi secara permanen.' };
+      return { success: true, message: 'Periode payroll berhasil dikunci dan difinalisasi secara permanen.' };
     }
     return { success: false, message: 'Periode penggajian tidak ditemukan.' };
   }
@@ -1288,7 +1294,7 @@ export class PreviewStore {
     list.unshift(newExp);
     this.cashExpenses[unitId] = list;
     this.saveToStorage();
-    return { success: true, message: '[SIMULASI PREVIEW] Pengeluaran kas berhasil dicatat (Status: PENDING menunggu persetujuan).', expense_id: newExpId };
+    return { success: true, message: 'Pengeluaran kas berhasil dicatat (Status: PENDING menunggu persetujuan).', expense_id: newExpId };
   }
 
   public approveExpense(unitId: string, expenseId: string, approverName?: string): { success: boolean; message: string } {
@@ -1304,7 +1310,7 @@ export class PreviewStore {
       exp.approved_by_name = approverName || 'Kepala Toko';
       exp.approved_at = new Date().toISOString();
       this.saveToStorage();
-      return { success: true, message: '[SIMULASI PREVIEW] Pengeluaran kas telah disetujui (Status: APPROVED).' };
+      return { success: true, message: 'Pengeluaran kas telah disetujui (Status: APPROVED).' };
     }
     return { success: false, message: 'Data pengeluaran kas tidak ditemukan.' };
   }
@@ -1321,7 +1327,7 @@ export class PreviewStore {
       exp.approval_status = 'REJECTED';
       exp.rejection_reason = reason || 'Ditolak oleh manajemen';
       this.saveToStorage();
-      return { success: true, message: `[SIMULASI PREVIEW] Pengeluaran kas telah ditolak${reason ? ': ' + reason : ''}.` };
+      return { success: true, message: `Pengeluaran kas telah ditolak${reason ? ': ' + reason : ''}.` };
     }
     return { success: false, message: 'Data pengeluaran kas tidak ditemukan.' };
   }
@@ -1662,264 +1668,36 @@ export class PreviewStore {
     ];
   }
 
-  private createDefaultBorrowingRequests(unitId: string): VehicleBorrowingRequest[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    if (isPalen) {
-      return [
-        {
-          id: 'vbr-palen-001',
-          unit_id: unitId,
-          vehicle_id: 'veh-palen-001',
-          booking_code: 'FLEET-KUK-PALEN-202611-0001',
-          borrower_name: 'Bambang S',
-          borrower_institution: 'Internal Logistik Palen',
-          borrower_phone: '085277889900',
-          responsible_person: 'Kepala Toko Palen',
-          start_time: '2026-11-06T09:00:00Z',
-          estimated_return_time: '2026-11-06T15:00:00Z',
-          destination: 'Pengiriman Kaca Proyek Rangkasbitung',
-          purpose: 'Pengiriman pesanan kaca cermin 5mm konsumen.',
-          status: 'APPROVED',
-          approved_by: 'Kepala Toko Palen',
-          approved_at: '2026-11-05T10:00:00Z',
-          created_at: '2026-11-05T09:00:00Z',
-          vehicle: { id: 'veh-palen-001', unit_id: unitId, license_plate: 'A 8123 PAL', brand: 'Daihatsu', model: 'GranMax Pick Up 1.5', year: 2023, type: 'PICKUP', status: 'AVAILABLE', is_active: true, created_at: '' },
-        },
-      ];
-    }
-    return [
-      {
-        id: 'vbr-001',
-        unit_id: unitId,
-        vehicle_id: 'veh-001',
-        booking_code: 'FLEET-TB-LATANSA-202611-0001',
-        borrower_name: 'Budi Santoso',
-        borrower_institution: 'Internal Gudang',
-        borrower_phone: '081234567890',
-        responsible_person: 'Kepala Gudang',
-        start_time: '2026-11-06T09:00:00Z',
-        estimated_return_time: '2026-11-06T15:00:00Z',
-        destination: 'Pengiriman Kaca Proyek Villa Cileungsi',
-        purpose: 'Pengiriman pesanan kaca tempered 10mm konsumen proyek.',
-        status: 'APPROVED',
-        approved_by: 'Manager Armada',
-        approved_at: '2026-11-05T10:00:00Z',
-        created_at: '2026-11-05T09:00:00Z',
-        vehicle: { id: 'veh-001', unit_id: unitId, license_plate: 'B 9123 KUK', brand: 'Mitsubishi', model: 'Colt L300 Pick Up', year: 2022, type: 'PICKUP', status: 'AVAILABLE', is_active: true, created_at: '' },
-      },
-    ];
+  private createDefaultBorrowingRequests(_unitId: string): VehicleBorrowingRequest[] {
+    return [];
   }
 
-  private createDefaultLeaveRequests(unitId: string): LeaveRequest[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    if (isPalen) {
-      return [
-        {
-          id: 'leave-palen-001',
-          unit_id: unitId,
-          employee_id: 'emp-palen-002',
-          request_number: 'CUTI-KUK-PALEN-202611-0001',
-          target_month: '2026-11',
-          total_days: 1,
-          snapshot_employee_name: 'Dewi Lestari',
-          snapshot_department_name: 'Administrasi & Keuangan',
-          snapshot_position_title: 'Kasir Toko',
-          reason: 'Keperluan keluarga mendesak.',
-          status: 'APPROVED',
-          auto_approved: true,
-          created_at: '2026-11-01T09:30:00Z',
-          updated_at: '2026-11-01T09:30:00Z',
-          dates: [
-            { id: 'ld-p-01', unit_id: unitId, leave_request_id: 'leave-palen-001', leave_date: '2026-11-08', is_sunday: true },
-          ],
-        },
-      ];
-    }
-    return [
-      {
-        id: 'leave-001',
-        unit_id: unitId,
-        employee_id: 'emp-002',
-        request_number: 'CUTI-TB-LATANSA-202611-0001',
-        target_month: '2026-11',
-        total_days: 1,
-        snapshot_employee_name: 'Siti Aminah',
-        snapshot_department_name: 'Administrasi & Keuangan',
-        snapshot_position_title: 'Admin 3 (Operasional Toko)',
-        reason: 'Keperluan keluarga penting di hari libur resmi.',
-        status: 'APPROVED',
-        auto_approved: true,
-        created_at: '2026-11-01T09:30:00Z',
-        updated_at: '2026-11-01T09:30:00Z',
-        dates: [
-          { id: 'ld-01', unit_id: unitId, leave_request_id: 'leave-001', leave_date: '2026-11-08', is_sunday: true },
-        ],
-      },
-    ];
+  private createDefaultLeaveRequests(_unitId: string): LeaveRequest[] {
+    return [];
   }
 
-  private createDefaultGlassTips(unitId: string): GlassTip[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    if (isPalen) {
-      return [
-        {
-          id: 'tip-palen-001',
-          unit_id: unitId,
-          reference_code: 'TIP-KUK-PALEN-202611-0001',
-          employee_id: 'emp-palen-001',
-          glass_type_id: 'gt-palen-01',
-          length_cm: 100,
-          height_cm: 200,
-          quantity: 2,
-          calculated_sqm: 4.0,
-          glass_price_snapshot: 1100000,
-          tip_percentage_snapshot: 0.03,
-          rounding_rule: 'ROUND_UP_1000',
-          tip_amount: 33000,
-          verified_amount: 33000,
-          status: 'VERIFIED',
-          created_at: '2026-11-03T11:20:00Z',
-          employee: { full_name: 'Rian Pratama', employee_code: 'EMP-PALEN-001' } as Employee,
-          glass_type: { id: 'gt-palen-01', unit_id: unitId, name: 'Kaca Bening 5mm', code: 'KB-5MM', thickness_mm: 5, is_active: true },
-        },
-      ];
-    }
-    return [
-      {
-        id: 'tip-001',
-        unit_id: unitId,
-        reference_code: 'TIP-TB-LATANSA-202611-0001',
-        employee_id: 'emp-001',
-        glass_type_id: 'gt-01',
-        length_cm: 120,
-        height_cm: 150,
-        quantity: 2,
-        calculated_sqm: 3.6,
-        glass_price_snapshot: 950000,
-        tip_percentage_snapshot: 0.03,
-        rounding_rule: 'EXACT',
-        tip_amount: 28500,
-        verified_amount: 28500,
-        status: 'VERIFIED',
-        created_at: '2026-11-03T11:20:00Z',
-        employee: { full_name: 'Budi Santoso', employee_code: 'EMP-LATANSA-001' } as Employee,
-        glass_type: { id: 'gt-01', unit_id: unitId, name: 'Kaca Polos 5mm', code: 'KP-5MM', thickness_mm: 5, is_active: true },
-      },
-    ];
+  private createDefaultGlassTips(_unitId: string): GlassTip[] {
+    return [];
   }
 
-  private createDefaultViolations(unitId: string): ViolationRecord[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    return [
-      {
-        id: isPalen ? 'v-palen-001' : 'v-001',
-        unit_id: unitId,
-        employee_id: isPalen ? 'emp-palen-001' : 'emp-001',
-        violation_type_id: isPalen ? 'vt-palen-01' : 'vt-01',
-        incident_date: '2026-10-25',
-        description: 'Terlambat lebih dari 30 menit tanpa pemberitahuan atasan.',
-        points_assigned: 5,
-        recorded_by: isPalen ? 'Supervisor KUK Palen' : 'Supervisor Operasional',
-        created_at: '2026-10-25T10:00:00Z',
-        employee: { full_name: isPalen ? 'Ahmad Fauzi' : 'Budi Santoso', employee_code: isPalen ? 'EMP-PALEN-001' : 'EMP-LATANSA-001' } as Employee,
-        violation_type: { id: isPalen ? 'vt-palen-01' : 'vt-01', unit_id: unitId, name: 'Keterlambatan Tingkat Ringan', code: 'LATE-1', points: 5, is_active: true },
-      },
-    ];
+  private createDefaultViolations(_unitId: string): ViolationRecord[] {
+    return [];
   }
 
-  private createDefaultWarningLetters(unitId: string): WarningLetter[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    return [
-      {
-        id: isPalen ? 'sp-palen-001' : 'sp-001',
-        unit_id: unitId,
-        employee_id: isPalen ? 'emp-palen-001' : 'emp-001',
-        letter_number: isPalen ? 'SP/KUK-PALEN/202610/0001' : 'SP/TB-LATANSA/202610/0001',
-        level: 'ORAL_WARNING',
-        issued_date: '2026-10-26',
-        valid_until: '2027-04-26',
-        reason: 'Akumulasi poin keterlambatan mencapai batas evaluasi lisan.',
-        approval_status: 'APPROVED',
-        issued_by: isPalen ? 'Kepala Toko Palen' : 'Kepala Toko La Tansa',
-        created_at: '2026-10-26T08:00:00Z',
-        employee: { full_name: isPalen ? 'Ahmad Fauzi' : 'Budi Santoso', employee_code: isPalen ? 'EMP-PALEN-001' : 'EMP-LATANSA-001' } as Employee,
-      },
-    ];
+  private createDefaultWarningLetters(_unitId: string): WarningLetter[] {
+    return [];
   }
 
-  private createDefaultBriefings(unitId: string): BriefingSession[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    return [
-      {
-        id: isPalen ? 'brf-palen-001' : 'brf-001',
-        unit_id: unitId,
-        session_date: '2026-11-05',
-        session_time: '07:45:00',
-        topic: isPalen ? 'Briefing Operasional Pelayanan Palen' : 'K3 Pemotongan Kaca & Pelayanan Konsumen Cepat',
-        speaker_name: isPalen ? 'Manager KUK Palen' : 'Ahmad Ridwan (Manager Toko)',
-        total_attendees: isPalen ? 8 : 12,
-        created_at: '2026-11-05T07:45:00Z',
-      },
-    ];
+  private createDefaultBriefings(_unitId: string): BriefingSession[] {
+    return [];
   }
 
-  private createDefaultPayrollPeriods(unitId: string): PayrollPeriod[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    return [
-      {
-        id: isPalen ? 'pp-palen-202610' : 'pp-202610',
-        unit_id: unitId,
-        period_name: isPalen ? 'Gaji Periode Oktober 2026 (Palen)' : 'Gaji Periode Oktober 2026 (La Tansa)',
-        start_date: '2026-10-01',
-        end_date: '2026-10-31',
-        payout_date: '2026-11-01',
-        status: 'FINALIZED',
-        total_net_payout: isPalen ? 35000000 : 48500000,
-        finalized_at: '2026-10-31T20:00:00Z',
-        finalized_by: isPalen ? 'Manager Palen' : 'Manager Keuangan',
-        created_at: '2026-10-01T08:00:00Z',
-      },
-    ];
+  private createDefaultPayrollPeriods(_unitId: string): PayrollPeriod[] {
+    return [];
   }
 
-  private createDefaultCashExpenses(unitId: string): CashExpense[] {
-    const isPalen = unitId === '00000000-0000-0000-0000-000000000002' || /palen/i.test(unitId);
-    if (isPalen) {
-      return [
-        {
-          id: 'exp-palen-001',
-          unit_id: unitId,
-          expense_number: 'KAS-PALEN-202611-001',
-          category: 'OFFICE_SUPPLIES',
-          amount: 120000,
-          description: 'Pembelian kertas struk kasir & lakban packing KUK Palen',
-          recipient_name: 'Toko ATK Palen Jaya',
-          expense_date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-          approval_status: 'APPROVED',
-          approved_by: 'usr-004',
-          approved_by_name: 'Kepala Toko KUK Palen',
-          approved_at: new Date(Date.now() - 80000000).toISOString(),
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-        },
-      ];
-    }
-    return [
-      {
-        id: 'exp-001',
-        unit_id: unitId,
-        expense_number: `KAS-${unitId.substring(0, 4).toUpperCase()}-202611-001`,
-        category: 'OFFICE_SUPPLIES',
-        amount: 175000,
-        description: 'Pembelian kertas thermal kasir & tinta printer nota 3 rim',
-        recipient_name: 'Toko ATK Barokah',
-        expense_date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-        approval_status: 'APPROVED',
-        approved_by: 'usr-003',
-        approved_by_name: 'Kepala Toko La Tansa',
-        approved_at: new Date(Date.now() - 80000000).toISOString(),
-        created_at: new Date(Date.now() - 86400000).toISOString(),
-      },
-    ];
+  private createDefaultCashExpenses(_unitId: string): CashExpense[] {
+    return [];
   }
 
   private createDefaultDepartments(unitId: string): Department[] {

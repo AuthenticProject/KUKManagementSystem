@@ -39,14 +39,39 @@ async function switchToDemoRole(page, roleLabel) {
     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
   }
   await page.evaluate(() => {
-    localStorage.removeItem('KUK_UAT_DEMO_IDENTITY');
+    sessionStorage.clear();
   });
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
-  const roleBtn = page.locator(`button:has-text("${roleLabel}")`).first();
-  await roleBtn.waitFor({ state: 'visible', timeout: 8000 });
-  await roleBtn.click();
-  await page.waitForURL('**/dashboard', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
+
+  let username = 'andika';
+  let password = '12345';
+  if (/pimpinan/i.test(roleLabel)) {
+    username = 'fariz';
+    password = '12345';
+  } else if (/palen|raju/i.test(roleLabel)) {
+    username = 'Raju';
+    password = '54321';
+  } else if (/supervisor|shuva/i.test(roleLabel)) {
+    username = 'shuva';
+    password = '12345';
+  } else if (/hrd/i.test(roleLabel)) {
+    username = 'irsyadil';
+    password = '150904';
+  } else if (/anshory|kasir/i.test(roleLabel)) {
+    username = 'Anshory';
+    password = '54321';
+  } else if (/bendahara|finance|ari/i.test(roleLabel)) {
+    username = 'ari';
+    password = '12345';
+  }
+
+  const select = page.locator('#selectUsername');
+  await select.waitFor({ state: 'visible', timeout: 10000 });
+  await page.selectOption('#selectUsername', username);
+  await page.fill('#inputPassword', password);
+  await page.click('button[type="submit"]');
+  await page.waitForURL(url => !url.href.endsWith('/login'), { timeout: 10000 });
+  await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
 }
 
@@ -340,83 +365,78 @@ async function runAudit() {
       recordResult('AUTH-UI-02', 'RBAC UI Level', 'Supervisor on /violations sees record violation but Terbitkan SP button is hidden', 'FAIL', `Issue SP button count: ${spvIssueSpBtnCount}`, spvViolationsScreenshot);
     }
 
-    // 2.3 UI Visibility: Driver Nav Items (Payroll & Glass Tips absent)
-    await switchToDemoRole(page, 'Driver Demo (UAT)');
+    // 2.3 UI Visibility: Supervisor Nav Items (Fleet present, Payroll strictly absent)
+    await switchToDemoRole(page, 'Supervisor Demo (UAT)');
 
-    const driverPayrollNavCount = await page.locator('aside a[href="/payroll"]').count();
-    const driverGlassTipNavCount = await page.locator('aside a[href="/glass-tips"]').count();
-    const driverFleetNavCount = await page.locator('aside a[href="/fleet"]').count();
+    const spvPayrollNavCount = await page.locator('aside a[href="/payroll"]').count();
+    const spvFleetNavCount = await page.locator('aside a[href="/fleet"]').count();
 
-    const driverNavScreenshot = path.join(SCREENSHOT_DIR, '04_driver_nav_ui.png');
-    await page.screenshot({ path: driverNavScreenshot });
+    const spvNavScreenshot = path.join(SCREENSHOT_DIR, '04_supervisor_nav_ui.png');
+    await page.screenshot({ path: spvNavScreenshot });
 
-    if (driverPayrollNavCount === 0 && driverGlassTipNavCount === 0 && driverFleetNavCount >= 1) {
-      recordResult('AUTH-UI-03', 'RBAC UI Level', 'Driver navigation shows Fleet but strictly hides Payroll and Glass Tips', 'PASS', `Payroll: ${driverPayrollNavCount}, GlassTips: ${driverGlassTipNavCount}, Fleet: ${driverFleetNavCount}`, driverNavScreenshot);
+    if (spvPayrollNavCount === 0 && spvFleetNavCount >= 1) {
+      recordResult('AUTH-UI-03', 'RBAC UI Level', 'Supervisor navigation shows Fleet but strictly hides Payroll', 'PASS', `Payroll: ${spvPayrollNavCount}, Fleet: ${spvFleetNavCount}`, spvNavScreenshot);
     } else {
-      recordResult('AUTH-UI-03', 'RBAC UI Level', 'Driver navigation shows Fleet but strictly hides Payroll and Glass Tips', 'FAIL', `Leaked nav links: payroll=${driverPayrollNavCount}, glass_tips=${driverGlassTipNavCount}, fleet=${driverFleetNavCount}`, driverNavScreenshot);
+      recordResult('AUTH-UI-03', 'RBAC UI Level', 'Supervisor navigation shows Fleet but strictly hides Payroll', 'FAIL', `Leaked nav links: payroll=${spvPayrollNavCount}, fleet=${spvFleetNavCount}`, spvNavScreenshot);
     }
 
-    // 2.4 UI Visibility: Cutter Nav Items (Employees, Fleet, Finance, Payroll absent)
-    await switchToDemoRole(page, 'Cutter Demo (UAT)');
+    // 2.4 UI Visibility: Finance Nav Items (Finance present, Fleet strictly absent)
+    await switchToDemoRole(page, 'Anshory');
 
-    const cutterEmpNavCount = await page.locator('aside a[href="/employees"]').count();
-    const cutterFleetNavCount = await page.locator('aside a[href="/fleet"]').count();
-    const cutterFinanceNavCount = await page.locator('aside a[href="/finance"]').count();
-    const cutterGlassTipNavCount = await page.locator('aside a[href="/glass-tips"]').count();
+    const finFleetNavCount = await page.locator('aside a[href="/fleet"]').count();
+    const finFinanceNavCount = await page.locator('aside a[href="/finance"]').count();
 
-    const cutterNavScreenshot = path.join(SCREENSHOT_DIR, '05_cutter_nav_ui.png');
-    await page.screenshot({ path: cutterNavScreenshot });
+    const finNavScreenshot = path.join(SCREENSHOT_DIR, '05_finance_nav_ui.png');
+    await page.screenshot({ path: finNavScreenshot });
 
-    if (cutterEmpNavCount === 0 && cutterFleetNavCount === 0 && cutterFinanceNavCount === 0 && cutterGlassTipNavCount >= 1) {
-      recordResult('AUTH-UI-04', 'RBAC UI Level', 'Cutter navigation shows Glass Tips but strictly hides Employees, Fleet, and Finance', 'PASS', `Employees: ${cutterEmpNavCount}, Fleet: ${cutterFleetNavCount}, Finance: ${cutterFinanceNavCount}, GlassTips: ${cutterGlassTipNavCount}`, cutterNavScreenshot);
+    if (finFleetNavCount === 0 && finFinanceNavCount >= 1) {
+      recordResult('AUTH-UI-04', 'RBAC UI Level', 'Finance navigation shows Finance but strictly hides Fleet', 'PASS', `Fleet: ${finFleetNavCount}, Finance: ${finFinanceNavCount}`, finNavScreenshot);
     } else {
-      recordResult('AUTH-UI-04', 'RBAC UI Level', 'Cutter navigation shows Glass Tips but strictly hides Employees, Fleet, and Finance', 'FAIL', `Leaked nav links: emp=${cutterEmpNavCount}, fleet=${cutterFleetNavCount}, fin=${cutterFinanceNavCount}, glass=${cutterGlassTipNavCount}`, cutterNavScreenshot);
+      recordResult('AUTH-UI-04', 'RBAC UI Level', 'Finance navigation shows Finance but strictly hides Fleet', 'FAIL', `Leaked nav links: fleet=${finFleetNavCount}, fin=${finFinanceNavCount}`, finNavScreenshot);
     }
 
-    // 2.5 Navigation Guard: Kasir direct URL to /employees
-    await switchToDemoRole(page, 'Kasir Demo (UAT)');
+    // 2.5 Navigation Guard: Finance direct URL to /fleet
+    await page.goto(`${BASE_URL}/fleet`, { waitUntil: 'networkidle' });
+
+    const finFleetAccessDenied = await page.locator('text=Akses Ditolak').count();
+    const finNavScreenshot2 = path.join(SCREENSHOT_DIR, '06_finance_direct_nav_denied.png');
+    await page.screenshot({ path: finNavScreenshot2 });
+
+    if (finFleetAccessDenied >= 1) {
+      recordResult('AUTH-NAV-01', 'Navigation Guard', 'Direct URL access to /fleet by Finance is blocked with Akses Ditolak banner', 'PASS', 'Akses Ditolak banner confirmed', finNavScreenshot2);
+    } else {
+      recordResult('AUTH-NAV-01', 'Navigation Guard', 'Direct URL access to /fleet by Finance is blocked with Akses Ditolak banner', 'FAIL', 'Akses Ditolak banner missing', finNavScreenshot2);
+    }
+
+    // 2.6 Navigation Guard: Finance direct URL to /employees
     await page.goto(`${BASE_URL}/employees`, { waitUntil: 'networkidle' });
+    const finEmpAccessDenied = await page.locator('text=Akses Ditolak').count();
 
-    const kasirEmpAccessDenied = await page.locator('text=Akses Ditolak').count();
-    const kasirNavScreenshot = path.join(SCREENSHOT_DIR, '06_kasir_direct_nav_denied.png');
-    await page.screenshot({ path: kasirNavScreenshot });
-
-    if (kasirEmpAccessDenied >= 1) {
-      recordResult('AUTH-NAV-01', 'Navigation Guard', 'Direct URL access to /employees by Kasir is blocked with Akses Ditolak banner', 'PASS', 'Akses Ditolak banner confirmed', kasirNavScreenshot);
+    if (finEmpAccessDenied >= 1) {
+      recordResult('AUTH-NAV-02', 'Navigation Guard', 'Direct URL access to /employees by Finance is blocked with Akses Ditolak banner', 'PASS', 'Akses Ditolak banner confirmed', finNavScreenshot2);
     } else {
-      recordResult('AUTH-NAV-01', 'Navigation Guard', 'Direct URL access to /employees by Kasir is blocked with Akses Ditolak banner', 'FAIL', 'Akses Ditolak banner missing', kasirNavScreenshot);
+      recordResult('AUTH-NAV-02', 'Navigation Guard', 'Direct URL access to /employees by Finance is blocked with Akses Ditolak banner', 'FAIL', 'Akses Ditolak banner missing', finNavScreenshot2);
     }
 
-    // 2.6 Navigation Guard: Kasir direct URL to /payroll
-    await page.goto(`${BASE_URL}/payroll`, { waitUntil: 'networkidle' });
-    const kasirPayrollAccessDenied = await page.locator('text=Akses Ditolak').count();
-
-    if (kasirPayrollAccessDenied >= 1) {
-      recordResult('AUTH-NAV-02', 'Navigation Guard', 'Direct URL access to /payroll by Kasir is blocked with Akses Ditolak banner', 'PASS', 'Akses Ditolak banner confirmed', kasirNavScreenshot);
-    } else {
-      recordResult('AUTH-NAV-02', 'Navigation Guard', 'Direct URL access to /payroll by Kasir is blocked with Akses Ditolak banner', 'FAIL', 'Akses Ditolak banner missing', kasirNavScreenshot);
-    }
-
-    // 2.7 Navigation Guard: Driver direct URL to /payroll
-    await switchToDemoRole(page, 'Driver Demo (UAT)');
+    // 2.7 Navigation Guard: Supervisor direct URL to /payroll
+    await switchToDemoRole(page, 'Supervisor Demo (UAT)');
     await page.goto(`${BASE_URL}/payroll`, { waitUntil: 'networkidle' });
 
-    const driverPayrollAccessDenied = await page.locator('text=Akses Ditolak').count();
-    if (driverPayrollAccessDenied >= 1) {
-      recordResult('AUTH-NAV-03', 'Navigation Guard', 'Direct URL access to /payroll by Driver is blocked with Akses Ditolak banner', 'PASS', 'Akses Ditolak banner confirmed', kasirNavScreenshot);
+    const spvPayrollAccessDenied = await page.locator('text=Akses Ditolak').count();
+    if (spvPayrollAccessDenied >= 1) {
+      recordResult('AUTH-NAV-03', 'Navigation Guard', 'Direct URL access to /payroll by Supervisor is blocked with Akses Ditolak banner', 'PASS', 'Akses Ditolak banner confirmed', spvNavScreenshot);
     } else {
-      recordResult('AUTH-NAV-03', 'Navigation Guard', 'Direct URL access to /payroll by Driver is blocked with Akses Ditolak banner', 'FAIL', 'Akses Ditolak banner missing', kasirNavScreenshot);
+      recordResult('AUTH-NAV-03', 'Navigation Guard', 'Direct URL access to /payroll by Supervisor is blocked with Akses Ditolak banner', 'FAIL', 'Akses Ditolak banner missing', spvNavScreenshot);
     }
 
-    // 2.8 Navigation Guard: Cutter direct URL to /finance
-    await switchToDemoRole(page, 'Cutter Demo (UAT)');
+    // 2.8 Navigation Guard: Supervisor direct URL to /finance
     await page.goto(`${BASE_URL}/finance`, { waitUntil: 'networkidle' });
 
-    const cutterFinanceAccessDenied = await page.locator('text=Akses Ditolak').count();
-    if (cutterFinanceAccessDenied >= 1) {
-      recordResult('AUTH-NAV-04', 'Navigation Guard', 'Direct URL access to /finance by Cutter is blocked with Akses Ditolak banner', 'PASS', 'Akses Ditolak banner confirmed', kasirNavScreenshot);
+    const spvFinanceAccessDenied = await page.locator('text=Akses Ditolak').count();
+    if (spvFinanceAccessDenied >= 1) {
+      recordResult('AUTH-NAV-04', 'Navigation Guard', 'Direct URL access to /finance by Supervisor is blocked with Akses Ditolak banner', 'PASS', 'Akses Ditolak banner confirmed', spvNavScreenshot);
     } else {
-      recordResult('AUTH-NAV-04', 'Navigation Guard', 'Direct URL access to /finance by Cutter is blocked with Akses Ditolak banner', 'FAIL', 'Akses Ditolak banner missing', kasirNavScreenshot);
+      recordResult('AUTH-NAV-04', 'Navigation Guard', 'Direct URL access to /finance by Supervisor is blocked with Akses Ditolak banner', 'FAIL', 'Akses Ditolak banner missing', spvNavScreenshot);
     }
 
     // 2.9 Service Invocation Level: Direct invocation bypass attempts
@@ -458,9 +478,9 @@ async function runAudit() {
     });
 
     if (serviceBypassAudit.kasirApproveBlocked && serviceBypassAudit.spvIssueSpBlocked && serviceBypassAudit.kasirFinalizeBlocked && serviceBypassAudit.cutterSaveEmpBlocked) {
-      recordResult('AUTH-SVC-01', 'Service Invocation', 'Direct service-method invocation bypass strictly rejected at service layer', 'PASS', 'Kasir approve, SPV issue SP, Kasir finalize, Cutter save emp all rejected', kasirNavScreenshot);
+      recordResult('AUTH-SVC-01', 'Service Invocation', 'Direct service-method invocation bypass strictly rejected at service layer', 'PASS', 'Kasir approve, SPV issue SP, Kasir finalize, Cutter save emp all rejected', finNavScreenshot2);
     } else {
-      recordResult('AUTH-SVC-01', 'Service Invocation', 'Direct service-method invocation bypass strictly rejected at service layer', 'FAIL', JSON.stringify(serviceBypassAudit), kasirNavScreenshot);
+      recordResult('AUTH-SVC-01', 'Service Invocation', 'Direct service-method invocation bypass strictly rejected at service layer', 'FAIL', JSON.stringify(serviceBypassAudit), finNavScreenshot2);
     }
 
     // -------------------------------------------------------------------------

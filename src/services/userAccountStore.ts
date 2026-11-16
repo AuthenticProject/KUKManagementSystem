@@ -30,7 +30,7 @@ export interface StoredStaffUser {
   updated_at?: string;
 }
 
-export const STORAGE_KEY_USERS = 'kuk_master_users';
+export const STORAGE_KEY_USERS = 'kuk_staff_master_v3_2';
 
 export const DEFAULT_KUK_STAFF_USERS: StoredStaffUser[] = [
   // ==========================================
@@ -58,7 +58,7 @@ export const DEFAULT_KUK_STAFF_USERS: StoredStaffUser[] = [
     jabatan: 'Kepala Toko',
     toko: 'bangunan',
     role: 'MANAGER',
-    permissions: ['dashboard', 'absen', 'cuti', 'pelanggaran', 'tip', 'peminjaman', 'karyawan', 'payroll'],
+    permissions: ['dashboard', 'absen', 'cuti', 'pelanggaran', 'tip', 'peminjaman', 'karyawan', 'payroll', 'finance', 'fleet'],
     foto: 'assets/foto_staf/andika.jpg',
     is_active: true,
     email: 'andika@kuk.co.id',
@@ -133,45 +133,6 @@ export const DEFAULT_KUK_STAFF_USERS: StoredStaffUser[] = [
     email: 'zain@kuk.co.id',
     phone: '081234567807',
   },
-  {
-    id: 'USR-013',
-    username: 'kasir.latansa',
-    password: '12345',
-    namaLengkap: 'Kasir Utama La Tansa',
-    jabatan: 'Kasir Toko',
-    toko: 'bangunan',
-    role: 'KASIR',
-    permissions: ['glass_tips', 'finance', 'attendance'],
-    is_active: true,
-    email: 'kasir.latansa@kuk.co.id',
-    phone: '081234567813',
-  },
-  {
-    id: 'USR-014',
-    username: 'cutter.latansa',
-    password: '12345',
-    namaLengkap: 'Tukang Potong Kaca',
-    jabatan: 'Pemotong Kaca',
-    toko: 'bangunan',
-    role: 'CUTTER',
-    permissions: ['glass_tips', 'attendance'],
-    is_active: true,
-    email: 'cutter.latansa@kuk.co.id',
-    phone: '081234567814',
-  },
-  {
-    id: 'USR-015',
-    username: 'driver.latansa',
-    password: '12345',
-    namaLengkap: 'Sopir Pengiriman',
-    jabatan: 'Pengemudi Armada',
-    toko: 'bangunan',
-    role: 'DRIVER',
-    permissions: ['fleet', 'attendance'],
-    is_active: true,
-    email: 'driver.latansa@kuk.co.id',
-    phone: '081234567815',
-  },
 
   // ==========================================
   // 🏬 KUK PALEN STAFF
@@ -184,7 +145,7 @@ export const DEFAULT_KUK_STAFF_USERS: StoredStaffUser[] = [
     jabatan: 'Kepala Toko',
     toko: 'palen',
     role: 'MANAGER',
-    permissions: ['dashboard', 'absen', 'pelanggaran', 'karyawan'],
+    permissions: ['dashboard', 'absen', 'pelanggaran', 'karyawan', 'cuti', 'tip', 'peminjaman', 'payroll', 'finance', 'fleet'],
     foto: 'assets/foto_staf/raju.jpg',
     is_active: true,
     email: 'raju@kuk.co.id',
@@ -264,7 +225,13 @@ class UserAccountStore {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Filter out any legacy non-management worker login roles
+          return parsed.filter(
+            (u: any) =>
+              !['kasir.latansa', 'cutter.latansa', 'driver.latansa'].includes(
+                (u.username || '').toLowerCase()
+              ) && !['KASIR', 'CUTTER', 'DRIVER'].includes(u.role)
+          );
         }
       }
     } catch (e) {

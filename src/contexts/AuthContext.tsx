@@ -121,9 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(identity.profile);
     setSystemRoles(identity.systemRoles);
     setUnitRoles(identity.unitRoles);
-    setIsDemoMode(true);
-    setActiveDemoKey(identity.key);
-    setStoredDemoIdentityKey(identity.key);
+    setIsDemoMode(false);
+    setActiveDemoKey(null);
+    clearStoredDemoIdentity();
     setPreviewModeActive(true);
     setLoading(false);
   };
@@ -234,24 +234,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.sessionStorage.removeItem('kuk_user');
       } catch (e) {}
     }
-    if (isDemoMode) {
-      clearStoredDemoIdentity();
-      setPreviewModeActive(false);
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setSystemRoles([]);
-      setUnitRoles([]);
-      setIsDemoMode(false);
-      setActiveDemoKey(null);
-      return;
-    }
-    await supabase.auth.signOut();
-    setSession(null);
+    clearStoredDemoIdentity();
+    setPreviewModeActive(false);
     setUser(null);
+    setSession(null);
     setProfile(null);
     setSystemRoles([]);
     setUnitRoles([]);
+    setIsDemoMode(false);
+    setActiveDemoKey(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
   };
 
   const refreshProfile = async () => {

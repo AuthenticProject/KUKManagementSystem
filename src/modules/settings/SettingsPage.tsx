@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   systemService,
   employeeService,
   glassTipService,
-  isPreviewModeActive,
-  setPreviewModeActive,
 } from '@/services/dataService';
 import { userAccountStore, StoredStaffUser } from '@/services/userAccountStore';
 import type { UserAccount, BusinessUnit, UserRole, Department, Position, WorkSchedule } from '@/types/models';
@@ -37,13 +34,11 @@ import {
 import { PageHeader } from '@/components/ui';
 
 export const SettingsPage: React.FC = () => {
-  const { isSuperAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState<'USERS' | 'MASTER' | 'RBAC' | 'UNITS' | 'PREVIEW'>('USERS');
+  const [activeTab, setActiveTab] = useState<'USERS' | 'MASTER' | 'RBAC' | 'UNITS'>('USERS');
   const [staffUsers, setStaffUsers] = useState<StoredStaffUser[]>([]);
   const [units, setUnits] = useState<BusinessUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<string | null>(null);
-  const [previewActive, setPreviewActive] = useState<boolean>(isPreviewModeActive());
   const [error, setError] = useState<string | null>(null);
 
   // Search & Filter
@@ -116,19 +111,8 @@ export const SettingsPage: React.FC = () => {
   // Legacy Edit Role modal (preserved)
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
-  const [targetRole, setTargetRole] = useState<UserRole>('KASIR');
+  const [targetRole, setTargetRole] = useState<UserRole>('SUPERVISOR');
   const [savingRole, setSavingRole] = useState(false);
-
-  const isProduction =
-    typeof import.meta !== 'undefined' &&
-    ((import.meta as any)?.env?.PROD === true ||
-      (import.meta as any)?.env?.VITE_APP_ENV === 'production' ||
-      (import.meta as any)?.env?.MODE === 'production');
-  const allowInProd =
-    typeof import.meta !== 'undefined' &&
-    (import.meta as any)?.env?.VITE_ENABLE_PREVIEW_MODE === 'true';
-  const isPreviewBlocked = isProduction && !allowInProd;
-  const canTogglePreview = isSuperAdmin && !isPreviewBlocked;
 
   const loadMasterData = async (unitId: string = masterUnit) => {
     try {
@@ -507,19 +491,6 @@ export const SettingsPage: React.FC = () => {
         >
           <Building2 className="w-4 h-4" />
           <span>Unit Usaha Terdaftar ({units.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('PREVIEW')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-colors ${
-            activeTab === 'PREVIEW'
-              ? 'bg-kuk-maroon text-white shadow-xs'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>Sumber Data & Pratinjau</span>
-          {previewActive && <span className="w-2 h-2 rounded-full bg-amber-400"></span>}
         </button>
       </div>
 
@@ -1379,64 +1350,6 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab: Preview & Data Source */}
-      {activeTab === 'PREVIEW' && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-6 space-y-6">
-          <div className="flex items-start justify-between border-b border-gray-100 pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-kuk-maroon" />
-                <h2 className="font-bold text-gray-900 text-base">Konfigurasi Sumber Data & Preview Mode</h2>
-              </div>
-              <p className="text-xs text-gray-500 mt-1 max-w-2xl">
-                Kontrol perilaku pengambilan data aplikasi. Mengatur apakah aplikasi memuat data riil Supabase Cloud secara langsung, atau menggunakan fallback data simulasi lokal (Zero-State Preview).
-              </p>
-            </div>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                previewActive
-                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              }`}
-            >
-              {previewActive ? 'PREVIEW MODE: AKTIF' : 'LIVE SUPABASE: AKTIF'}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-5 rounded-xl border border-gray-200 bg-gray-50/50 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-sm text-gray-900">Zero-State Preview Mode</h3>
-                  <p className="text-2xs text-gray-500 mt-0.5">Key: localStorage[&apos;KUK_PREVIEW_MODE&apos;]</p>
-                </div>
-                <button
-                  disabled={!canTogglePreview}
-                  onClick={() => {
-                    if (!canTogglePreview) return;
-                    const next = !previewActive;
-                    const ok = setPreviewModeActive(next);
-                    if (!ok) {
-                      showToast('Aksi ditolak: Mode preview dinonaktifkan permanen pada environment Production.');
-                      return;
-                    }
-                    setPreviewActive(next);
-                    showToast(next ? 'Mode Preview diaktifkan.' : 'Mode Preview dinonaktifkan.');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                    previewActive
-                      ? 'bg-kuk-maroon text-white hover:bg-kuk-maroon-700'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {previewActive ? 'Aktif' : 'Non-Aktif'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ============================================================== */}
       {/* MODAL EDIT / CREATE AKUN STAF (FULL EDITABILITY) */}
       {/* ============================================================== */}
@@ -1555,11 +1468,7 @@ export const SettingsPage: React.FC = () => {
                   >
                     <option value="PIMPINAN">PIMPINAN (Direksi / Koordinator)</option>
                     <option value="MANAGER">MANAGER (Kepala Toko / HRD)</option>
-                    <option value="SUPERVISOR">SUPERVISOR (Pengawas / Inventaris)</option>
-                    <option value="KASIR">KASIR (Kasir Toko)</option>
-                    <option value="CHECKER">CHECKER (Pemeriksa Gudang)</option>
-                    <option value="CUTTER">CUTTER (Tukang Potong Kaca)</option>
-                    <option value="DRIVER">DRIVER (Sopir Armada)</option>
+                    <option value="SUPERVISOR">SUPERVISOR (Pengawas / Inventaris / Bendahara)</option>
                   </select>
                 </div>
               </div>
@@ -1670,11 +1579,7 @@ export const SettingsPage: React.FC = () => {
                 >
                   <option value="PIMPINAN">PIMPINAN (Direksi / Owner)</option>
                   <option value="MANAGER">MANAGER (Kepala Toko / Operasional)</option>
-                  <option value="SUPERVISOR">SUPERVISOR (Pengawas Toko)</option>
-                  <option value="KASIR">KASIR (Kasir Toko)</option>
-                  <option value="CHECKER">CHECKER (Pemeriksa Barang & Gudang)</option>
-                  <option value="CUTTER">CUTTER (Tukang Potong Kaca)</option>
-                  <option value="DRIVER">DRIVER (Sopir Pengiriman)</option>
+                  <option value="SUPERVISOR">SUPERVISOR (Pengawas Toko / Inventaris)</option>
                 </select>
               </div>
 
